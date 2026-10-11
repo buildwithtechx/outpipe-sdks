@@ -1,0 +1,39 @@
+name: Feature request
+description: Propose an improvement to the standalone tunnel product
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user or operational problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the behavior or API you want.
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Tunnel server
+        - Tunnel agent
+        - CLI
+        - Dashboard
+        - Desktop app
+        - Protocol
+        - Self-hosted deployment
+        - Outpipe integration
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
