@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Protocol Conformance Test Fixtures",
+  "fixtures": [
+    {
+      "name": "valid_auth_request",
+      "valid": true,
+      "raw": "{\"version\":1,\"type\":\"auth\",\"request_id\":\"req_auth_1\",\"payload\":{\"token\":\"test-token-123\",\"agent_id\":\"agent_abc\",\"requested_capabilities\":[\"http\",\"tcp\"]}}"
+    },
+    {
+      "name": "valid_auth_response",
+      "valid": true,
+      "raw": "{\"version\":1,\"type\":\"auth_response\",\"request_id\":\"req_auth_1\",\"payload\":{\"authenticated\":true,\"agent_id\":\"agent_abc\",\"organization_id\":\"org_123\",\"granted_capabilities\":[\"http\",\"tcp\"]}}"
+    },
+    {
+      "name": "valid_version_negotiate",
+      "valid": true,
+      "raw": "{\"version\":1,\"type\":\"version_negotiate\",\"request_id\":\"req_ver_1\",\"payload\":{\"min_version\":1,\"max_version\":1,\"client_name\":\"cli\",\"client_version\":\"0.1.0\"}}"
+    },
+    {
+      "name": "valid_flow_control_pause",
+      "valid": true,
+      "raw": "{\"version\":1,\"type\":\"flow_control\",\"request_id\":\"req_fc_1\",\"payload\":{\"stream_id\":\"stream_789\",\"action\":\"pause\",\"window_size\":0}}"
+    },
+    {
+      "name": "valid_open_tunnel",
+      "valid": true,
+      "raw": "{\"version\":1,\"type\":\"open_tunnel\",\"request_id\":\"req_open_1\",\"payload\":{\"token\":\"tok_123\",\"local_port\":3000,\"protocol\":\"http\"}}"
+    },
+    {
+      "name": "invalid_version_high",
+      "valid": false,
+      "raw": "{\"version\":999,\"type\":\"open_tunnel\",\"payload\":{}}"
+    },
+    {
+      "name": "invalid_type",
+      "valid": false,
+      "raw": "{\"version\":1,\"type\":\"unknown_type\",\"payload\":{}}"
+    }
+  ]
+}
