@@ -5,6 +5,7 @@ export type TanStackStartTunnelOptions = RelayConnectionOptions & {
   subdomain?: string;
   password?: string;
   autoStart?: boolean;
+  recordExceptions?: boolean;
 };
 
 export type TanStackStartTunnel = {
@@ -20,4 +21,13 @@ export type TanStackStartTunnelState = {
   publicUrl?: string;
   publicPort?: number;
   error?: Error;
+};
+
+export type TanStackStartServerOptions = TanStackStartTunnelOptions & {
+  handler: (request: Request) => Response | Promise<Response>;
+};
+
+export type TanStackStartServerEntry = {
+  tunnel: TanStackStartTunnel;
+  fetch: (request: Request) => Promise<Response>;
 };

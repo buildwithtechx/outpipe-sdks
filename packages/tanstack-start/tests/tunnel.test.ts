@@ -37,3 +37,33 @@ it('allows explicit startup with autoStart disabled and restart after stop', asy
   expect((await tunnel.start()).status).toBe('active');
   expect(relay.openTunnel).toHaveBeenCalledTimes(2);
 });
+
+it('records exception details on start failure by default', async () => {
+  relay.openTunnel.mockRejectedValueOnce(new Error('private-start-failure'));
+  const tunnel = createTanStackStartTunnel({
+    relayUrl: 'ws://example.com',
+    localPort: 3000,
+    autoStart: false,
+  });
+  await expect(tunnel.start()).rejects.toThrow('private-start-failure');
+  const state = tunnel.state();
+  expect(state.status).toBe('error');
+  expect(state.error?.message).toBe('private-start-failure');
+});
+
+it('keeps error states metadata-only when recordExceptions is false', async () => {
+  relay.openTunnel.mockRejectedValueOnce(new Error('private-start-failure'));
+  const tunnel = createTanStackStartTunnel({
+    relayUrl: 'ws://example.com',
+    localPort: 3000,
+    autoStart: false,
+    recordExceptions: false,
+  });
+  await expect(tunnel.start()).rejects.toThrow('private-start-failure');
+  expect(tunnel.state()).toEqual({ status: 'error' });
+
+  const errorCall = relay.on.mock.calls.find((call) => call[0] === 'error');
+  const handleError = errorCall?.[1] as ((error: unknown) => void) | undefined;
+  handleError?.(new Error('private-connection-failure'));
+  expect(tunnel.state()).toEqual({ status: 'error' });
+});

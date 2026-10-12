@@ -31,7 +31,10 @@ export function createTanStackStartTunnel(
   });
   connection.on('error', (error) => {
     if (current.status !== 'closed') {
-      current = { status: 'error', error };
+      current =
+        options.recordExceptions === false
+          ? { status: 'error' }
+          : { status: 'error', error };
     }
   });
 
@@ -67,7 +70,10 @@ export function createTanStackStartTunnel(
         })
         .catch((value) => {
           if (startGeneration === generation) {
-            current = { status: 'error', error: normalizeError(value) };
+            current =
+              options.recordExceptions === false
+                ? { status: 'error' }
+                : { status: 'error', error: normalizeError(value) };
           }
           throw value;
         })
