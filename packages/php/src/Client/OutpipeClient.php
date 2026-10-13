@@ -82,7 +82,35 @@ final class OutpipeClient
         return $this->request('POST', '/api/v1/organizations/' . $this->segment($organizationId) . '/domains', $domain);
     }
 
-    public function verifyDomain(string $domainId): array { return $this->request('POST', '/api/v1/domains/' . $this->segment($domainId) . '/verify'); }
+    public function verifyDomain(string $domainId, string $token): array
+    {
+        return $this->request('POST', '/api/v1/domains/' . $this->segment($domainId) . '/verify', ['token' => $token]);
+    }
+
+    public function deleteDomain(string $domainId): void
+    {
+        $this->request('DELETE', '/api/v1/domains/' . $this->segment($domainId));
+    }
+
+    public function listDNSProviders(string $organizationId): array
+    {
+        return $this->request('GET', '/api/v1/organizations/' . $this->segment($organizationId) . '/dns-providers');
+    }
+
+    public function connectDNSProvider(string $organizationId, array $credential): array
+    {
+        return $this->request('POST', '/api/v1/organizations/' . $this->segment($organizationId) . '/dns-providers', $credential);
+    }
+
+    public function deleteDNSProvider(string $organizationId, string $credentialId): void
+    {
+        $this->request('DELETE', '/api/v1/organizations/' . $this->segment($organizationId) . '/dns-providers/' . $this->segment($credentialId));
+    }
+
+    public function refreshMachineTunnelRelayToken(string $tunnelId): array
+    {
+        return $this->request('POST', '/api/v1/machines/tunnels/' . $this->segment($tunnelId) . '/relay-token');
+    }
 
     public function usageSnapshot(string $organizationId, array $query = []): array
     {

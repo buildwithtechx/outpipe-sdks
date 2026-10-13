@@ -157,6 +157,128 @@ func TestTunnelLifecycleAgainstHTTPServer(t *testing.T) {
 	}
 }
 
+func TestDomainAndDNSProviderLifecycle(t *testing.T) {
+	type captured struct {
+		method string
+		path   string
+		body   map[string]any
+	}
+	var requests []captured
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		if r.Method == http.MethodPost && r.ContentLength != 0 {
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Errorf("decode request body: %v", err)
+			}
+		}
+		requests = append(requests, captured{method: r.Method, path: r.URL.EscapedPath(), body: body})
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method + " " + r.URL.EscapedPath() {
+		case "GET /api/v1/organizations/org-1/domains":
+			_, _ = w.Write([]byte(`[{"id":"domain-1","hostname":"app.example.com","status":"pending","verificationMethod":"dns","certificateExpiresAt":"2026-01-01T00:00:00Z"}]`))
+		case "POST /api/v1/organizations/org-1/domains":
+			if body["hostname"] != "*.example.com" || body["verificationMethod"] != "dns-automation" {
+				t.Errorf("create domain body = %#v", body)
+			}
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"domain":{"id":"domain-2","hostname":"*.example.com","status":"pending","verificationMethod":"dns-automation"},"verificationToken":"cdv-secret"}`))
+		case "POST /api/v1/domains/domain-1/verify":
+			if body["token"] != "cdv-token" {
+				t.Errorf("verify domain body = %#v", body)
+			}
+			w.WriteHeader(http.StatusNoContent)
+		case "DELETE /api/v1/domains/domain-1":
+			w.WriteHeader(http.StatusNoContent)
+		case "GET /api/v1/organizations/org-1/dns-providers":
+			_, _ = w.Write([]byte(`[{"id":"cred-1","organizationId":"org-1","provider":"cloudflare","label":"primary","lastFour":"1234","keyVersion":1}]`))
+		case "POST /api/v1/organizations/org-1/dns-providers":
+			if body["provider"] != "cloudflare" || body["token"] != "cf-test-token-1234" || body["label"] != "primary" {
+				t.Errorf("connect DNS provider body = %#v", body)
+			}
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"id":"cred-1","organizationId":"org-1","provider":"cloudflare","label":"primary","lastFour":"1234","keyVersion":1}`))
+		case "DELETE /api/v1/organizations/org-1/dns-providers/cred-1":
+			w.WriteHeader(http.StatusNoContent)
+		case "POST /api/v1/machines/tunnels/tunnel-1/relay-token":
+			_, _ = w.Write([]byte(`{"relayToken":"relay-token","expiresAt":"2026-01-01T00:15:00Z"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	client, err := New(Config{BaseURL: server.URL, APIKey: "key"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+
+	domains, err := client.Domains(ctx, "org-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(domains) != 1 || domains[0]["hostname"] != "app.example.com" {
+		t.Fatalf("domains = %#v", domains)
+	}
+	created, err := client.CreateDomain(ctx, "org-1", map[string]any{"hostname": "*.example.com", "verificationMethod": "dns-automation"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created["verificationToken"] != "cdv-secret" {
+		t.Fatalf("created domain = %#v", created)
+	}
+	if err := client.VerifyDomain(ctx, "domain-1", "cdv-token"); err != nil {
+		t.Fatal(err)
+	}
+	if err := client.DeleteDomain(ctx, "domain-1"); err != nil {
+		t.Fatal(err)
+	}
+	providers, err := client.ListDNSProviders(ctx, "org-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(providers) != 1 || providers[0]["provider"] != "cloudflare" {
+		t.Fatalf("dns providers = %#v", providers)
+	}
+	if _, ok := providers[0]["token"]; ok {
+		t.Fatalf("credential secret leaked: %#v", providers[0])
+	}
+	connected, err := client.ConnectDNSProvider(ctx, "org-1", map[string]any{"provider": "cloudflare", "token": "cf-test-token-1234", "label": "primary"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if connected["lastFour"] != "1234" {
+		t.Fatalf("connected provider = %#v", connected)
+	}
+	if err := client.DeleteDNSProvider(ctx, "org-1", "cred-1"); err != nil {
+		t.Fatal(err)
+	}
+	relay, err := client.RefreshMachineTunnelRelayToken(ctx, "tunnel-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if relay["relayToken"] != "relay-token" || relay["expiresAt"] != "2026-01-01T00:15:00Z" {
+		t.Fatalf("relay token = %#v", relay)
+	}
+	want := []string{
+		"GET /api/v1/organizations/org-1/domains",
+		"POST /api/v1/organizations/org-1/domains",
+		"POST /api/v1/domains/domain-1/verify",
+		"DELETE /api/v1/domains/domain-1",
+		"GET /api/v1/organizations/org-1/dns-providers",
+		"POST /api/v1/organizations/org-1/dns-providers",
+		"DELETE /api/v1/organizations/org-1/dns-providers/cred-1",
+		"POST /api/v1/machines/tunnels/tunnel-1/relay-token",
+	}
+	if len(requests) != len(want) {
+		t.Fatalf("requests = %#v, want %#v", requests, want)
+	}
+	for index := range want {
+		if got := requests[index].method + " " + requests[index].path; got != want[index] {
+			t.Errorf("request[%d] = %q, want %q", index, got, want[index])
+		}
+	}
+}
+
 func contractRoute(contract httpTunnelContract, method, path string) (struct {
 	Method  string         `json:"method"`
 	Path    string         `json:"path"`

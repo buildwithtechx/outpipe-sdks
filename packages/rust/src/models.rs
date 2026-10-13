@@ -38,3 +38,67 @@ pub struct CreateTunnel {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub password: Option<String>,
 }
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct Domain {
+    pub id: String,
+    pub hostname: String,
+    pub status: String,
+    #[serde(rename = "verificationMethod")]
+    pub verification_method: String,
+    #[serde(rename = "organizationId")]
+    pub organization_id: Option<String>,
+    #[serde(rename = "tunnelId")]
+    pub tunnel_id: Option<String>,
+    #[serde(rename = "verifiedAt")]
+    pub verified_at: Option<String>,
+    #[serde(rename = "certificateStatus")]
+    pub certificate_status: Option<String>,
+    #[serde(rename = "certificateExpiresAt")]
+    pub certificate_expires_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct CreateDomain {
+    pub hostname: String,
+    #[serde(rename = "verificationMethod")]
+    pub verification_method: String,
+    #[serde(rename = "tunnelId", skip_serializing_if = "Option::is_none")]
+    pub tunnel_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct CreateDomainResponse {
+    pub domain: Domain,
+    #[serde(rename = "verificationToken")]
+    pub verification_token: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct DnsProviderCredential {
+    pub id: String,
+    #[serde(rename = "organizationId")]
+    pub organization_id: String,
+    pub provider: String,
+    pub label: Option<String>,
+    #[serde(rename = "lastFour")]
+    pub last_four: Option<String>,
+    #[serde(rename = "keyVersion")]
+    pub key_version: Option<i32>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct ConnectDnsProvider {
+    pub provider: String,
+    pub token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct RelayTokenResponse {
+    #[serde(rename = "relayToken")]
+    pub relay_token: String,
+    #[serde(rename = "expiresAt")]
+    pub expires_at: String,
+}

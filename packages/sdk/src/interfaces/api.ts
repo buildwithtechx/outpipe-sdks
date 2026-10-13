@@ -15,3 +15,50 @@ export type Tunnel = {
   status: string;
   [key: string]: unknown;
 };
+
+export type DomainVerificationMethod = 'dns' | 'http' | 'dns-automation';
+
+export type Domain = {
+  id: string;
+  organizationId?: string;
+  tunnelId?: string;
+  hostname: string;
+  status: string;
+  verificationMethod: DomainVerificationMethod;
+  verifiedAt?: string;
+  certificateStatus?: string;
+  certificateExpiresAt?: string;
+  [key: string]: unknown;
+};
+
+export type CreateDomainRequest = {
+  hostname: string;
+  verificationMethod: DomainVerificationMethod;
+  tunnelId?: string;
+};
+
+export type CreateDomainResponse = {
+  domain: Domain;
+  verificationToken: string;
+};
+
+export type DNSProviderCredential = {
+  id: string;
+  organizationId: string;
+  provider: string;
+  label?: string;
+  lastFour?: string;
+  keyVersion?: number;
+  [key: string]: unknown;
+};
+
+export type ConnectDNSProviderRequest = {
+  provider: string;
+  token: string;
+  label?: string;
+};
+
+export type RelayTokenResponse = {
+  relayToken: string;
+  expiresAt: string;
+};

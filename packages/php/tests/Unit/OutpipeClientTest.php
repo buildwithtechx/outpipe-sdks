@@ -50,6 +50,61 @@ final class OutpipeClientTest extends TestCase
         $client->tunnel('tunnel-1');
     }
 
+    public function testItVerifiesAndDeletesDomains(): void
+    {
+        $transport = new FakeTransport([
+            new Response(204, [], ''),
+            new Response(204, [], ''),
+        ]);
+        $client = new OutpipeClient('https://api.outpipe.dev', 'key-123', 3, $transport);
+
+        $client->verifyDomain('domain-1', 'cdv-token');
+        $client->deleteDomain('domain-1');
+
+        self::assertSame('/api/v1/domains/domain-1/verify', $transport->requests[0]['path']);
+        self::assertSame(['token' => 'cdv-token'], $transport->requests[0]['body']);
+        self::assertSame('POST', $transport->requests[0]['method']);
+        self::assertSame('/api/v1/domains/domain-1', $transport->requests[1]['path']);
+        self::assertSame('DELETE', $transport->requests[1]['method']);
+    }
+
+    public function testItManagesDnsProvidersWithoutExposingSecrets(): void
+    {
+        $transport = new FakeTransport([
+            new Response(201, [], '{"id":"cred-1","organizationId":"org-1","provider":"cloudflare","label":"primary","lastFour":"1234","keyVersion":1}'),
+            new Response(200, [], '[{"id":"cred-1","organizationId":"org-1","provider":"cloudflare","label":"primary","lastFour":"1234","keyVersion":1}]'),
+            new Response(204, [], ''),
+        ]);
+        $client = new OutpipeClient('https://api.outpipe.dev', 'key-123', 3, $transport);
+
+        $connected = $client->connectDNSProvider('org-1', ['provider' => 'cloudflare', 'token' => 'cf-test-token-1234', 'label' => 'primary']);
+        $listed = $client->listDNSProviders('org-1');
+        $client->deleteDNSProvider('org-1', 'cred-1');
+
+        self::assertSame('1234', $connected['lastFour']);
+        self::assertArrayNotHasKey('token', $connected);
+        self::assertSame('/api/v1/organizations/org-1/dns-providers', $transport->requests[0]['path']);
+        self::assertSame(['provider' => 'cloudflare', 'token' => 'cf-test-token-1234', 'label' => 'primary'], $transport->requests[0]['body']);
+        self::assertCount(1, $listed);
+        self::assertSame('/api/v1/organizations/org-1/dns-providers/cred-1', $transport->requests[2]['path']);
+        self::assertSame('DELETE', $transport->requests[2]['method']);
+    }
+
+    public function testItRefreshesMachineTunnelRelayTokens(): void
+    {
+        $transport = new FakeTransport([
+            new Response(200, [], '{"relayToken":"relay-token","expiresAt":"2026-01-01T00:15:00Z"}'),
+        ]);
+        $client = new OutpipeClient('https://api.outpipe.dev', 'machine-token', 3, $transport);
+
+        $relay = $client->refreshMachineTunnelRelayToken('tunnel-1');
+
+        self::assertSame('relay-token', $relay['relayToken']);
+        self::assertSame('2026-01-01T00:15:00Z', $relay['expiresAt']);
+        self::assertSame('/api/v1/machines/tunnels/tunnel-1/relay-token', $transport->requests[0]['path']);
+        self::assertSame('POST', $transport->requests[0]['method']);
+    }
+
     public function testWebhookSignaturesAcceptPrefixedAndRawValues(): void
     {
         $payload = '{"event":"tunnel.ready"}';

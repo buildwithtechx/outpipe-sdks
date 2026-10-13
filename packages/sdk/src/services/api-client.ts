@@ -1,4 +1,13 @@
-import type { Tunnel, TunnelAPIClientOptions } from '../interfaces/api';
+import type {
+  ConnectDNSProviderRequest,
+  CreateDomainRequest,
+  CreateDomainResponse,
+  DNSProviderCredential,
+  Domain,
+  RelayTokenResponse,
+  Tunnel,
+  TunnelAPIClientOptions,
+} from '../interfaces/api';
 import { TunnelAPIError } from '../utils/errors';
 
 export class TunnelAPIClient {
@@ -53,6 +62,74 @@ export class TunnelAPIClient {
     await this.call<void>(`/tunnels/${encodeURIComponent(tunnelId)}`, {
       method: 'DELETE',
     });
+  }
+
+  async listDomains(organizationId: string): Promise<Domain[]> {
+    return this.call<Domain[]>(
+      `/organizations/${encodeURIComponent(organizationId)}/domains`,
+      { method: 'GET' },
+    );
+  }
+
+  async createDomain(
+    organizationId: string,
+    request: CreateDomainRequest,
+  ): Promise<CreateDomainResponse> {
+    return this.call<CreateDomainResponse>(
+      `/organizations/${encodeURIComponent(organizationId)}/domains`,
+      { method: 'POST', body: JSON.stringify(request) },
+    );
+  }
+
+  async verifyDomain(domainId: string, token: string): Promise<void> {
+    await this.call<void>(`/domains/${encodeURIComponent(domainId)}/verify`, {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+  }
+
+  async deleteDomain(domainId: string): Promise<void> {
+    await this.call<void>(`/domains/${encodeURIComponent(domainId)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async listDNSProviders(
+    organizationId: string,
+  ): Promise<DNSProviderCredential[]> {
+    return this.call<DNSProviderCredential[]>(
+      `/organizations/${encodeURIComponent(organizationId)}/dns-providers`,
+      { method: 'GET' },
+    );
+  }
+
+  async connectDNSProvider(
+    organizationId: string,
+    request: ConnectDNSProviderRequest,
+  ): Promise<DNSProviderCredential> {
+    return this.call<DNSProviderCredential>(
+      `/organizations/${encodeURIComponent(organizationId)}/dns-providers`,
+      { method: 'POST', body: JSON.stringify(request) },
+    );
+  }
+
+  async deleteDNSProvider(
+    organizationId: string,
+    credentialId: string,
+  ): Promise<void> {
+    await this.call<void>(
+      `/organizations/${encodeURIComponent(organizationId)}/dns-providers/${encodeURIComponent(credentialId)}`,
+      { method: 'DELETE' },
+    );
+  }
+
+  async refreshMachineTunnelRelayToken(
+    tunnelId: string,
+  ): Promise<RelayTokenResponse> {
+    return this.call<RelayTokenResponse>(
+      `/machines/tunnels/${encodeURIComponent(tunnelId)}/relay-token`,
+      { method: 'POST' },
+    );
   }
 
   private async call<T>(path: string, init: RequestInit): Promise<T> {

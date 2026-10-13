@@ -1,6 +1,9 @@
 use crate::{
     error::Error,
-    models::{CreateTunnel, Organization, Tunnel},
+    models::{
+        ConnectDnsProvider, CreateDomain, CreateDomainResponse, CreateTunnel,
+        DnsProviderCredential, Domain, Organization, RelayTokenResponse, Tunnel,
+    },
     Result,
 };
 use reqwest::{Client as HttpClient, Method, Response};
@@ -144,6 +147,107 @@ impl Client {
         self.send_empty(
             Method::DELETE,
             &format!("api/v1/tunnels/{}", encode(tunnel_id)),
+            &(),
+        )
+        .await
+    }
+
+    pub async fn refresh_machine_tunnel_relay_token(
+        &self,
+        tunnel_id: &str,
+    ) -> Result<RelayTokenResponse> {
+        self.send(
+            Method::POST,
+            &format!("api/v1/machines/tunnels/{}/relay-token", encode(tunnel_id)),
+            None::<&()>,
+            None::<&()>,
+        )
+        .await
+    }
+
+    pub async fn domains(&self, organization_id: &str) -> Result<Vec<Domain>> {
+        self.get(
+            &format!("api/v1/organizations/{}/domains", encode(organization_id)),
+            None::<&()>,
+        )
+        .await
+    }
+
+    pub async fn create_domain(
+        &self,
+        organization_id: &str,
+        domain: &CreateDomain,
+    ) -> Result<CreateDomainResponse> {
+        self.send(
+            Method::POST,
+            &format!("api/v1/organizations/{}/domains", encode(organization_id)),
+            Some(domain),
+            None::<&()>,
+        )
+        .await
+    }
+
+    pub async fn verify_domain(&self, domain_id: &str, token: &str) -> Result<()> {
+        self.send_empty(
+            Method::POST,
+            &format!("api/v1/domains/{}/verify", encode(domain_id)),
+            &serde_json::json!({"token": token}),
+        )
+        .await
+    }
+
+    pub async fn delete_domain(&self, domain_id: &str) -> Result<()> {
+        self.send_empty(
+            Method::DELETE,
+            &format!("api/v1/domains/{}", encode(domain_id)),
+            &(),
+        )
+        .await
+    }
+
+    pub async fn list_dns_providers(
+        &self,
+        organization_id: &str,
+    ) -> Result<Vec<DnsProviderCredential>> {
+        self.get(
+            &format!(
+                "api/v1/organizations/{}/dns-providers",
+                encode(organization_id)
+            ),
+            None::<&()>,
+        )
+        .await
+    }
+
+    pub async fn connect_dns_provider(
+        &self,
+        organization_id: &str,
+        credential: &ConnectDnsProvider,
+    ) -> Result<DnsProviderCredential> {
+        self.send(
+            Method::POST,
+            &format!(
+                "api/v1/organizations/{}/dns-providers",
+                encode(organization_id)
+            ),
+            Some(credential),
+            None::<&()>,
+        )
+        .await
+    }
+
+    pub async fn delete_dns_provider(
+        &self,
+        organization_id: &str,
+        credential_id: &str,
+    ) -> Result<()> {
+        self.send_empty(
+            Method::DELETE,
+            &format!(
+                "api/v1/organizations/{}/dns-providers/{}",
+                encode(organization_id),
+                encode(credential_id)
+            ),
             &(),
         )
         .await

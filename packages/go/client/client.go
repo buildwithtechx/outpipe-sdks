@@ -80,6 +80,59 @@ func (c *Client) SetTunnelStatus(ctx context.Context, tunnelID, status string) e
 func (c *Client) RevokeTunnel(ctx context.Context, tunnelID string) error {
 	return requestNoContent(ctx, c, http.MethodDelete, "/tunnels/"+url.PathEscape(tunnelID), nil)
 }
+func (c *Client) RefreshMachineTunnelRelayToken(ctx context.Context, tunnelID string) (map[string]any, error) {
+	relay, err := requestMap(ctx, c, http.MethodPost, "/machines/tunnels/"+url.PathEscape(tunnelID)+"/relay-token", nil)
+	if err != nil {
+		return nil, fmt.Errorf("refresh machine tunnel relay token: %w", err)
+	}
+	return relay, nil
+}
+func (c *Client) Domains(ctx context.Context, organizationID string) ([]map[string]any, error) {
+	domains, err := requestList(ctx, c, "/organizations/"+url.PathEscape(organizationID)+"/domains", nil)
+	if err != nil {
+		return nil, fmt.Errorf("list domains: %w", err)
+	}
+	return domains, nil
+}
+func (c *Client) CreateDomain(ctx context.Context, organizationID string, domain map[string]any) (map[string]any, error) {
+	created, err := requestMap(ctx, c, http.MethodPost, "/organizations/"+url.PathEscape(organizationID)+"/domains", domain)
+	if err != nil {
+		return nil, fmt.Errorf("create domain: %w", err)
+	}
+	return created, nil
+}
+func (c *Client) VerifyDomain(ctx context.Context, domainID, token string) error {
+	if err := requestNoContent(ctx, c, http.MethodPost, "/domains/"+url.PathEscape(domainID)+"/verify", map[string]string{"token": token}); err != nil {
+		return fmt.Errorf("verify domain: %w", err)
+	}
+	return nil
+}
+func (c *Client) DeleteDomain(ctx context.Context, domainID string) error {
+	if err := requestNoContent(ctx, c, http.MethodDelete, "/domains/"+url.PathEscape(domainID), nil); err != nil {
+		return fmt.Errorf("delete domain: %w", err)
+	}
+	return nil
+}
+func (c *Client) ListDNSProviders(ctx context.Context, organizationID string) ([]map[string]any, error) {
+	providers, err := requestList(ctx, c, "/organizations/"+url.PathEscape(organizationID)+"/dns-providers", nil)
+	if err != nil {
+		return nil, fmt.Errorf("list DNS providers: %w", err)
+	}
+	return providers, nil
+}
+func (c *Client) ConnectDNSProvider(ctx context.Context, organizationID string, credential map[string]any) (map[string]any, error) {
+	connected, err := requestMap(ctx, c, http.MethodPost, "/organizations/"+url.PathEscape(organizationID)+"/dns-providers", credential)
+	if err != nil {
+		return nil, fmt.Errorf("connect DNS provider: %w", err)
+	}
+	return connected, nil
+}
+func (c *Client) DeleteDNSProvider(ctx context.Context, organizationID, credentialID string) error {
+	if err := requestNoContent(ctx, c, http.MethodDelete, "/organizations/"+url.PathEscape(organizationID)+"/dns-providers/"+url.PathEscape(credentialID), nil); err != nil {
+		return fmt.Errorf("delete DNS provider: %w", err)
+	}
+	return nil
+}
 
 func (c *Client) do(ctx context.Context, method, path string, input any, output any) error {
 	var body io.Reader
