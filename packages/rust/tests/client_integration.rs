@@ -383,3 +383,91 @@ async fn manages_status_page_subscribers_against_local_http_server() {
         .expect("remove subscriber");
     server.join().expect("local server completed");
 }
+
+#[tokio::test]
+async fn manages_fleets_and_pipelines_against_local_http_server() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind local server");
+    let address = listener.local_addr().expect("local server address");
+    let server = thread::spawn(move || {
+        let expected = [
+            (
+                "GET",
+                "/api/v1/organizations/org-1/machine-fleets",
+                "200 OK",
+            ),
+            (
+                "GET",
+                "/api/v1/organizations/org-1/machine-fleets/fleet-1",
+                "200 OK",
+            ),
+            (
+                "POST",
+                "/api/v1/organizations/org-1/machine-fleets/fleet-1/reconcile",
+                "200 OK",
+            ),
+            (
+                "GET",
+                "/api/v1/organizations/org-1/observability/pipelines",
+                "200 OK",
+            ),
+            (
+                "GET",
+                "/api/v1/organizations/org-1/observability/dead-letters",
+                "200 OK",
+            ),
+        ];
+        for (index, (method, path, status)) in expected.iter().enumerate() {
+            let (mut stream, _) = listener.accept().expect("accept request");
+            let request = read_request(&mut stream);
+            let request_line = request.lines().next().expect("request line");
+            let bare_line = request_line.split('?').next().expect("request path");
+            assert!(
+                bare_line.starts_with(&format!("{method} {path} HTTP/1.1")),
+                "{request_line}"
+            );
+            let body = match index {
+                0 => r#"[{"id":"fleet-1","organizationId":"org-1","name":"edge","description":""}]"#,
+                1 => r#"{"fleet":{"id":"fleet-1","organizationId":"org-1","name":"edge","description":""},"drift":[]}"#,
+                2 => r#"{"reactivated":1,"recreated":0,"skipped":0}"#,
+                3 => r#"{"organizationId":"org-1","queues":[{"queue":"webhook-deliveries","depth":2,"deadLettered":1,"healthy":false}],"healthy":false}"#,
+                _ => r#"[{"queue":"telemetry-exports","id":"job-1","eventType":"captures","attempts":5,"lastError":"down","updatedAt":"2026-10-14T00:00:00Z"}]"#,
+            };
+            respond(stream, body, status);
+        }
+    });
+
+    let client = Client::builder()
+        .base_url(format!("http://{address}"))
+        .api_key("integration-key")
+        .build()
+        .expect("build client");
+
+    let fleets = client
+        .list_machine_fleets("org-1")
+        .await
+        .expect("list fleets");
+    assert_eq!(fleets.len(), 1);
+    assert_eq!(fleets[0].name, "edge");
+    let status = client
+        .fleet_status("org-1", "fleet-1")
+        .await
+        .expect("fleet status");
+    assert_eq!(status.fleet.id, "fleet-1");
+    client
+        .reconcile_fleet("org-1", "fleet-1")
+        .await
+        .expect("reconcile fleet");
+    let health = client
+        .pipeline_health("org-1")
+        .await
+        .expect("pipeline health");
+    assert!(!health.healthy);
+    assert_eq!(health.queues[0].queue, "webhook-deliveries");
+    let letters = client
+        .dead_letters("org-1")
+        .await
+        .expect("dead letters");
+    assert_eq!(letters.len(), 1);
+    assert_eq!(letters[0].queue, "telemetry-exports");
+    server.join().expect("local server completed");
+}

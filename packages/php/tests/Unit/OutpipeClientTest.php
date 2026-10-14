@@ -137,6 +137,27 @@ final class OutpipeClientTest extends TestCase
         self::assertSame('DELETE', $transport->requests[7]['method']);
     }
 
+    public function testItManagesMachineFleetsAndPipelines(): void
+    {
+        $transport = new FakeTransport([
+            new Response(201, [], '{"id":"fleet-1","name":"edge"}'),
+            new Response(200, [], '{"fleet":{"id":"fleet-1","name":"edge"},"tokens":[],"desiredTunnels":[],"liveTunnels":[],"drift":[]}'),
+            new Response(200, [], '{"reactivated":1,"recreated":0,"skipped":0}'),
+            new Response(200, [], '{"organizationId":"org-1","queues":[],"healthy":true,"checkedAt":"2026-10-14T00:00:00Z"}'),
+            new Response(200, [], '[{"queue":"telemetry-exports","id":"job-1","eventType":"captures","attempts":5,"lastError":"down","updatedAt":"2026-10-14T00:00:00Z"}]'),
+        ]);
+        $client = new OutpipeClient('https://api.outpipe.dev', 'key-123', 3, $transport);
+
+        self::assertSame('fleet-1', $client->createMachineFleet('org-1', ['name' => 'edge'])['id']);
+        self::assertSame('POST', $transport->requests[0]['method']);
+        self::assertSame('edge', $client->fleetStatus('org-1', 'fleet-1')['fleet']['name']);
+        self::assertSame(['reactivated' => 1, 'recreated' => 0, 'skipped' => 0], $client->reconcileFleet('org-1', 'fleet-1'));
+        self::assertTrue($client->pipelineHealth('org-1')['healthy']);
+        $letters = $client->deadLetters('org-1');
+        self::assertCount(1, $letters);
+        self::assertSame('telemetry-exports', $letters[0]['queue']);
+    }
+
     public function testWebhookSignaturesAcceptPrefixedAndRawValues(): void
     {
         $payload = '{"event":"tunnel.ready"}';

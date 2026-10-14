@@ -138,3 +138,61 @@ pub struct SubscriberListResult {
     #[serde(rename = "subscriptionsEnabled")]
     pub subscriptions_enabled: bool,
 }
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct MachineFleet {
+    pub id: String,
+    #[serde(rename = "organizationId")]
+    pub organization_id: String,
+    pub name: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct FleetDrift {
+    #[serde(rename = "tunnelId")]
+    pub tunnel_id: String,
+    pub name: String,
+    pub want: String,
+    pub got: String,
+    #[serde(rename = "machineOwned")]
+    pub machine_owned: bool,
+    #[serde(rename = "credentialOk")]
+    pub credential_ok: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct FleetStatus {
+    pub fleet: MachineFleet,
+    pub drift: Vec<FleetDrift>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct QueueHealth {
+    pub queue: String,
+    pub depth: i64,
+    #[serde(rename = "oldestAgeSecs")]
+    pub oldest_age_secs: Option<i64>,
+    #[serde(rename = "deadLettered")]
+    pub dead_lettered: i64,
+    pub healthy: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct PipelineHealth {
+    #[serde(rename = "organizationId")]
+    pub organization_id: String,
+    pub queues: Vec<QueueHealth>,
+    pub healthy: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct DeadLetter {
+    pub queue: String,
+    pub id: String,
+    #[serde(rename = "eventType")]
+    pub event_type: String,
+    pub attempts: i64,
+    #[serde(rename = "lastError")]
+    pub last_error: String,
+}

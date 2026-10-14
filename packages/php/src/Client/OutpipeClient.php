@@ -152,6 +152,36 @@ final class OutpipeClient
         return $this->request('POST', '/api/v1/machines/tunnels/' . $this->segment($tunnelId) . '/relay-token');
     }
 
+    public function listMachineFleets(string $organizationId): array
+    {
+        return $this->request('GET', '/api/v1/organizations/' . $this->segment($organizationId) . '/machine-fleets');
+    }
+
+    public function createMachineFleet(string $organizationId, array $fleet): array
+    {
+        return $this->request('POST', '/api/v1/organizations/' . $this->segment($organizationId) . '/machine-fleets', $fleet);
+    }
+
+    public function fleetStatus(string $organizationId, string $fleetId): array
+    {
+        return $this->request('GET', '/api/v1/organizations/' . $this->segment($organizationId) . '/machine-fleets/' . $this->segment($fleetId));
+    }
+
+    public function reconcileFleet(string $organizationId, string $fleetId): array
+    {
+        return $this->request('POST', '/api/v1/organizations/' . $this->segment($organizationId) . '/machine-fleets/' . $this->segment($fleetId) . '/reconcile');
+    }
+
+    public function pipelineHealth(string $organizationId): array
+    {
+        return $this->request('GET', '/api/v1/organizations/' . $this->segment($organizationId) . '/observability/pipelines');
+    }
+
+    public function deadLetters(string $organizationId, int $limit = 25): array
+    {
+        return $this->request('GET', '/api/v1/organizations/' . $this->segment($organizationId) . '/observability/dead-letters', ['limit' => $limit]);
+    }
+
     public function usageSnapshot(string $organizationId, array $query = []): array
     {
         return $this->request('GET', '/api/v1/organizations/' . $this->segment($organizationId) . '/usage/snapshot', $query);

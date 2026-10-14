@@ -2,9 +2,15 @@ import type {
   ConnectDNSProviderRequest,
   CreateDomainRequest,
   CreateDomainResponse,
+  DeadLetter,
   DNSProviderCredential,
   Domain,
+  FleetReconcileResult,
+  FleetStatus,
+  FleetTunnelSpec,
   ListSubscribersRequest,
+  MachineFleet,
+  PipelineHealth,
   RelayTokenResponse,
   StatusPageSubscriber,
   SubscriberListResult,
@@ -226,6 +232,91 @@ export class TunnelAPIClient {
     return this.call<StatusPageSubscriber>(
       `/organizations/${encodeURIComponent(organizationId)}/uptime/status-page/subscribers/${encodeURIComponent(subscriberId)}/scope`,
       { method: 'PUT', body: JSON.stringify({ componentIds }) },
+    );
+  }
+
+  async listMachineFleets(organizationId: string): Promise<MachineFleet[]> {
+    return this.call<MachineFleet[]>(
+      `/organizations/${encodeURIComponent(organizationId)}/machine-fleets`,
+      { method: 'GET' },
+    );
+  }
+
+  async createMachineFleet(
+    organizationId: string,
+    request: { name: string; description?: string },
+  ): Promise<MachineFleet> {
+    return this.call<MachineFleet>(
+      `/organizations/${encodeURIComponent(organizationId)}/machine-fleets`,
+      { method: 'POST', body: JSON.stringify(request) },
+    );
+  }
+
+  async getFleetStatus(
+    organizationId: string,
+    fleetId: string,
+  ): Promise<FleetStatus> {
+    return this.call<FleetStatus>(
+      `/organizations/${encodeURIComponent(organizationId)}/machine-fleets/${encodeURIComponent(fleetId)}`,
+      { method: 'GET' },
+    );
+  }
+
+  async deleteMachineFleet(
+    organizationId: string,
+    fleetId: string,
+  ): Promise<void> {
+    await this.call<void>(
+      `/organizations/${encodeURIComponent(organizationId)}/machine-fleets/${encodeURIComponent(fleetId)}`,
+      { method: 'DELETE' },
+    );
+  }
+
+  async bulkCreateFleetTunnels(
+    organizationId: string,
+    fleetId: string,
+    specs: FleetTunnelSpec[],
+  ): Promise<unknown[]> {
+    return this.call<unknown[]>(
+      `/organizations/${encodeURIComponent(organizationId)}/machine-fleets/${encodeURIComponent(fleetId)}/tunnels`,
+      { method: 'POST', body: JSON.stringify(specs) },
+    );
+  }
+
+  async rotateFleetTokens(
+    organizationId: string,
+    fleetId: string,
+  ): Promise<{ rotated: { id: string; name: string; raw: string }[] }> {
+    return this.call<{ rotated: { id: string; name: string; raw: string }[] }>(
+      `/organizations/${encodeURIComponent(organizationId)}/machine-fleets/${encodeURIComponent(fleetId)}/rotate`,
+      { method: 'POST' },
+    );
+  }
+
+  async reconcileFleet(
+    organizationId: string,
+    fleetId: string,
+  ): Promise<FleetReconcileResult> {
+    return this.call<FleetReconcileResult>(
+      `/organizations/${encodeURIComponent(organizationId)}/machine-fleets/${encodeURIComponent(fleetId)}/reconcile`,
+      { method: 'POST' },
+    );
+  }
+
+  async getPipelineHealth(organizationId: string): Promise<PipelineHealth> {
+    return this.call<PipelineHealth>(
+      `/organizations/${encodeURIComponent(organizationId)}/observability/pipelines`,
+      { method: 'GET' },
+    );
+  }
+
+  async listDeadLetters(
+    organizationId: string,
+    limit = 25,
+  ): Promise<DeadLetter[]> {
+    return this.call<DeadLetter[]>(
+      `/organizations/${encodeURIComponent(organizationId)}/observability/dead-letters?limit=${limit}`,
+      { method: 'GET' },
     );
   }
 

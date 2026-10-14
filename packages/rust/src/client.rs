@@ -1,9 +1,9 @@
 use crate::{
     error::Error,
     models::{
-        ConnectDnsProvider, CreateDomain, CreateDomainResponse, CreateTunnel,
-        DnsProviderCredential, Domain, Organization, RelayTokenResponse,
-        StatusPageSubscriber, SubscriberListResult, Tunnel,
+        ConnectDnsProvider, CreateDomain, CreateDomainResponse, CreateTunnel, DeadLetter,
+        DnsProviderCredential, Domain, FleetStatus, MachineFleet, Organization, PipelineHealth,
+        RelayTokenResponse, StatusPageSubscriber, SubscriberListResult, Tunnel,
     },
     Result,
 };
@@ -388,6 +388,82 @@ impl Client {
                 encode(subscriber_id)
             ),
             Some(&serde_json::json!({"componentIds": component_ids})),
+            None::<&()>,
+        )
+        .await
+    }
+
+    pub async fn list_machine_fleets(
+        &self,
+        organization_id: &str,
+    ) -> Result<Vec<MachineFleet>> {
+        self.get(
+            &format!(
+                "api/v1/organizations/{}/machine-fleets",
+                encode(organization_id)
+            ),
+            None::<&()>,
+        )
+        .await
+    }
+
+    pub async fn fleet_status(
+        &self,
+        organization_id: &str,
+        fleet_id: &str,
+    ) -> Result<FleetStatus> {
+        self.get(
+            &format!(
+                "api/v1/organizations/{}/machine-fleets/{}",
+                encode(organization_id),
+                encode(fleet_id)
+            ),
+            None::<&()>,
+        )
+        .await
+    }
+
+    pub async fn reconcile_fleet(
+        &self,
+        organization_id: &str,
+        fleet_id: &str,
+    ) -> Result<serde_json::Value> {
+        self.send(
+            Method::POST,
+            &format!(
+                "api/v1/organizations/{}/machine-fleets/{}/reconcile",
+                encode(organization_id),
+                encode(fleet_id)
+            ),
+            None::<&()>,
+            None::<&()>,
+        )
+        .await
+    }
+
+    pub async fn pipeline_health(
+        &self,
+        organization_id: &str,
+    ) -> Result<PipelineHealth> {
+        self.get(
+            &format!(
+                "api/v1/organizations/{}/observability/pipelines",
+                encode(organization_id)
+            ),
+            None::<&()>,
+        )
+        .await
+    }
+
+    pub async fn dead_letters(
+        &self,
+        organization_id: &str,
+    ) -> Result<Vec<DeadLetter>> {
+        self.get(
+            &format!(
+                "api/v1/organizations/{}/observability/dead-letters",
+                encode(organization_id)
+            ),
             None::<&()>,
         )
         .await
