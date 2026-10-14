@@ -7,5 +7,6 @@ pub use client::{Client, ClientBuilder};
 pub use error::{ApiError, Error, Result};
 pub use models::{
     ConnectDnsProvider, CreateDomain, CreateDomainResponse, CreateTunnel, DnsProviderCredential,
-    Domain, Organization, RelayTokenResponse, Tunnel,
+    Domain, Organization, RelayTokenResponse, StatusPageSubscriber, SubscriberCounts,
+    SubscriberListResult, Tunnel,
 };

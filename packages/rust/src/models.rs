@@ -102,3 +102,39 @@ pub struct RelayTokenResponse {
     #[serde(rename = "expiresAt")]
     pub expires_at: String,
 }
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct StatusPageSubscriber {
+    pub id: String,
+    #[serde(rename = "statusPageId")]
+    pub status_page_id: String,
+    pub email: String,
+    pub status: String,
+    pub confirmed: bool,
+    #[serde(rename = "confirmedAt")]
+    pub confirmed_at: Option<String>,
+    #[serde(rename = "unsubscribedAt")]
+    pub unsubscribed_at: Option<String>,
+    #[serde(rename = "lastSentAt")]
+    pub last_sent_at: Option<String>,
+    #[serde(rename = "createdAt")]
+    pub created_at: String,
+    pub components: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct SubscriberCounts {
+    pub pending: i64,
+    pub confirmed: i64,
+    pub unsubscribed: i64,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct SubscriberListResult {
+    pub subscribers: Vec<StatusPageSubscriber>,
+    pub counts: SubscriberCounts,
+    #[serde(rename = "nextCursor")]
+    pub next_cursor: Option<String>,
+    #[serde(rename = "subscriptionsEnabled")]
+    pub subscriptions_enabled: bool,
+}

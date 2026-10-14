@@ -107,6 +107,46 @@ final class OutpipeClient
         $this->request('DELETE', '/api/v1/organizations/' . $this->segment($organizationId) . '/dns-providers/' . $this->segment($credentialId));
     }
 
+    public function subscribeToStatusPage(string $slug, string $email, array $componentIds = []): array
+    {
+        return $this->request('POST', '/api/v1/status/' . $this->segment($slug) . '/subscribe', ['email' => $email, 'componentIds' => $componentIds]);
+    }
+
+    public function confirmSubscription(string $slug, string $token): array
+    {
+        return $this->request('POST', '/api/v1/status/' . $this->segment($slug) . '/confirm', ['token' => $token]);
+    }
+
+    public function unsubscribeFromStatusPage(string $slug, string $token): array
+    {
+        return $this->request('POST', '/api/v1/status/' . $this->segment($slug) . '/unsubscribe', ['token' => $token]);
+    }
+
+    public function listSubscribers(string $organizationId, array $query = []): array
+    {
+        return $this->request('GET', '/api/v1/organizations/' . $this->segment($organizationId) . '/uptime/status-page/subscribers', $query);
+    }
+
+    public function setSubscriptionsEnabled(string $organizationId, bool $enabled): array
+    {
+        return $this->request('PATCH', '/api/v1/organizations/' . $this->segment($organizationId) . '/uptime/status-page/subscriptions', ['subscriptionsEnabled' => $enabled]);
+    }
+
+    public function removeSubscriber(string $organizationId, string $subscriberId): void
+    {
+        $this->request('DELETE', '/api/v1/organizations/' . $this->segment($organizationId) . '/uptime/status-page/subscribers/' . $this->segment($subscriberId));
+    }
+
+    public function managerUnsubscribeSubscriber(string $organizationId, string $subscriberId): array
+    {
+        return $this->request('POST', '/api/v1/organizations/' . $this->segment($organizationId) . '/uptime/status-page/subscribers/' . $this->segment($subscriberId) . '/unsubscribe');
+    }
+
+    public function setSubscriberScope(string $organizationId, string $subscriberId, array $componentIds): array
+    {
+        return $this->request('PUT', '/api/v1/organizations/' . $this->segment($organizationId) . '/uptime/status-page/subscribers/' . $this->segment($subscriberId) . '/scope', ['componentIds' => $componentIds]);
+    }
+
     public function refreshMachineTunnelRelayToken(string $tunnelId): array
     {
         return $this->request('POST', '/api/v1/machines/tunnels/' . $this->segment($tunnelId) . '/relay-token');

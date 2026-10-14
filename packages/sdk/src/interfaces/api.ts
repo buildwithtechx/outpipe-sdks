@@ -62,3 +62,32 @@ export type RelayTokenResponse = {
   relayToken: string;
   expiresAt: string;
 };
+
+export type SubscriberStatus = 'pending' | 'confirmed' | 'unsubscribed';
+
+export type StatusPageSubscriber = {
+  id: string;
+  statusPageId: string;
+  email: string;
+  status: SubscriberStatus;
+  confirmed: boolean;
+  confirmedAt?: string;
+  unsubscribedAt?: string;
+  lastSentAt?: string;
+  createdAt: string;
+  components: string[];
+};
+
+export type SubscriberListResult = {
+  subscribers: StatusPageSubscriber[];
+  counts: { pending: number; confirmed: number; unsubscribed: number };
+  nextCursor?: string;
+  subscriptionsEnabled: boolean;
+};
+
+export type ListSubscribersRequest = {
+  q?: string;
+  status?: SubscriberStatus | 'all';
+  limit?: number;
+  cursor?: string;
+};

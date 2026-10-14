@@ -2,7 +2,8 @@ use crate::{
     error::Error,
     models::{
         ConnectDnsProvider, CreateDomain, CreateDomainResponse, CreateTunnel,
-        DnsProviderCredential, Domain, Organization, RelayTokenResponse, Tunnel,
+        DnsProviderCredential, Domain, Organization, RelayTokenResponse,
+        StatusPageSubscriber, SubscriberListResult, Tunnel,
     },
     Result,
 };
@@ -249,6 +250,145 @@ impl Client {
                 encode(credential_id)
             ),
             &(),
+        )
+        .await
+    }
+
+    pub async fn subscribe_to_status_page(
+        &self,
+        slug: &str,
+        email: &str,
+        component_ids: &[String],
+    ) -> Result<serde_json::Value> {
+        self.send(
+            Method::POST,
+            &format!("api/v1/status/{}/subscribe", encode(slug)),
+            Some(&serde_json::json!({"email": email, "componentIds": component_ids})),
+            None::<&()>,
+        )
+        .await
+    }
+
+    pub async fn confirm_subscription(
+        &self,
+        slug: &str,
+        token: &str,
+    ) -> Result<serde_json::Value> {
+        self.send(
+            Method::POST,
+            &format!("api/v1/status/{}/confirm", encode(slug)),
+            Some(&serde_json::json!({"token": token})),
+            None::<&()>,
+        )
+        .await
+    }
+
+    pub async fn unsubscribe_from_status_page(
+        &self,
+        slug: &str,
+        token: &str,
+    ) -> Result<serde_json::Value> {
+        self.send(
+            Method::POST,
+            &format!("api/v1/status/{}/unsubscribe", encode(slug)),
+            Some(&serde_json::json!({"token": token})),
+            None::<&()>,
+        )
+        .await
+    }
+
+    pub async fn list_subscribers(
+        &self,
+        organization_id: &str,
+        status: Option<&str>,
+        query: Option<&str>,
+    ) -> Result<SubscriberListResult> {
+        let mut params: Vec<(&str, &str)> = Vec::new();
+        if let Some(status) = status {
+            params.push(("status", status));
+        }
+        if let Some(query) = query {
+            params.push(("q", query));
+        }
+        self.send(
+            Method::GET,
+            &format!(
+                "api/v1/organizations/{}/uptime/status-page/subscribers",
+                encode(organization_id)
+            ),
+            None::<&()>,
+            Some(&params),
+        )
+        .await
+    }
+
+    pub async fn set_subscriptions_enabled(
+        &self,
+        organization_id: &str,
+        enabled: bool,
+    ) -> Result<serde_json::Value> {
+        self.send(
+            Method::PATCH,
+            &format!(
+                "api/v1/organizations/{}/uptime/status-page/subscriptions",
+                encode(organization_id)
+            ),
+            Some(&serde_json::json!({"subscriptionsEnabled": enabled})),
+            None::<&()>,
+        )
+        .await
+    }
+
+    pub async fn remove_subscriber(
+        &self,
+        organization_id: &str,
+        subscriber_id: &str,
+    ) -> Result<()> {
+        self.send_empty(
+            Method::DELETE,
+            &format!(
+                "api/v1/organizations/{}/uptime/status-page/subscribers/{}",
+                encode(organization_id),
+                encode(subscriber_id)
+            ),
+            &(),
+        )
+        .await
+    }
+
+    pub async fn manager_unsubscribe_subscriber(
+        &self,
+        organization_id: &str,
+        subscriber_id: &str,
+    ) -> Result<StatusPageSubscriber> {
+        self.send(
+            Method::POST,
+            &format!(
+                "api/v1/organizations/{}/uptime/status-page/subscribers/{}/unsubscribe",
+                encode(organization_id),
+                encode(subscriber_id)
+            ),
+            None::<&()>,
+            None::<&()>,
+        )
+        .await
+    }
+
+    pub async fn set_subscriber_scope(
+        &self,
+        organization_id: &str,
+        subscriber_id: &str,
+        component_ids: &[String],
+    ) -> Result<StatusPageSubscriber> {
+        self.send(
+            Method::PUT,
+            &format!(
+                "api/v1/organizations/{}/uptime/status-page/subscribers/{}/scope",
+                encode(organization_id),
+                encode(subscriber_id)
+            ),
+            Some(&serde_json::json!({"componentIds": component_ids})),
+            None::<&()>,
         )
         .await
     }

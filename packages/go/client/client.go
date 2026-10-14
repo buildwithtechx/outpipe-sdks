@@ -133,6 +133,65 @@ func (c *Client) DeleteDNSProvider(ctx context.Context, organizationID, credenti
 	}
 	return nil
 }
+func (c *Client) SubscribeToStatusPage(ctx context.Context, slug, email string, componentIDs []string) (map[string]any, error) {
+	subscribed, err := requestMap(ctx, c, http.MethodPost, "/status/"+url.PathEscape(slug)+"/subscribe", map[string]any{"email": email, "componentIds": componentIDs})
+	if err != nil {
+		return nil, fmt.Errorf("subscribe to status page: %w", err)
+	}
+	return subscribed, nil
+}
+func (c *Client) ConfirmSubscription(ctx context.Context, slug, token string) (map[string]any, error) {
+	confirmed, err := requestMap(ctx, c, http.MethodPost, "/status/"+url.PathEscape(slug)+"/confirm", map[string]string{"token": token})
+	if err != nil {
+		return nil, fmt.Errorf("confirm subscription: %w", err)
+	}
+	return confirmed, nil
+}
+func (c *Client) UnsubscribeFromStatusPage(ctx context.Context, slug, token string) (map[string]any, error) {
+	unsubscribed, err := requestMap(ctx, c, http.MethodPost, "/status/"+url.PathEscape(slug)+"/unsubscribe", map[string]string{"token": token})
+	if err != nil {
+		return nil, fmt.Errorf("unsubscribe from status page: %w", err)
+	}
+	return unsubscribed, nil
+}
+func (c *Client) ListSubscribers(ctx context.Context, organizationID string, query url.Values) (map[string]any, error) {
+	path := "/organizations/" + url.PathEscape(organizationID) + "/uptime/status-page/subscribers"
+	if encoded := query.Encode(); encoded != "" {
+		path += "?" + encoded
+	}
+	var output map[string]any
+	if err := c.do(ctx, http.MethodGet, "/"+c.apiPrefix+path, nil, &output); err != nil {
+		return nil, fmt.Errorf("list subscribers: %w", err)
+	}
+	return output, nil
+}
+func (c *Client) SetSubscriptionsEnabled(ctx context.Context, organizationID string, enabled bool) (map[string]any, error) {
+	updated, err := requestMap(ctx, c, http.MethodPatch, "/organizations/"+url.PathEscape(organizationID)+"/uptime/status-page/subscriptions", map[string]bool{"subscriptionsEnabled": enabled})
+	if err != nil {
+		return nil, fmt.Errorf("update subscriber settings: %w", err)
+	}
+	return updated, nil
+}
+func (c *Client) RemoveSubscriber(ctx context.Context, organizationID, subscriberID string) error {
+	if err := requestNoContent(ctx, c, http.MethodDelete, "/organizations/"+url.PathEscape(organizationID)+"/uptime/status-page/subscribers/"+url.PathEscape(subscriberID), nil); err != nil {
+		return fmt.Errorf("remove subscriber: %w", err)
+	}
+	return nil
+}
+func (c *Client) ManagerUnsubscribeSubscriber(ctx context.Context, organizationID, subscriberID string) (map[string]any, error) {
+	unsubscribed, err := requestMap(ctx, c, http.MethodPost, "/organizations/"+url.PathEscape(organizationID)+"/uptime/status-page/subscribers/"+url.PathEscape(subscriberID)+"/unsubscribe", nil)
+	if err != nil {
+		return nil, fmt.Errorf("manager unsubscribe subscriber: %w", err)
+	}
+	return unsubscribed, nil
+}
+func (c *Client) SetSubscriberScope(ctx context.Context, organizationID, subscriberID string, componentIDs []string) (map[string]any, error) {
+	scoped, err := requestMap(ctx, c, http.MethodPut, "/organizations/"+url.PathEscape(organizationID)+"/uptime/status-page/subscribers/"+url.PathEscape(subscriberID)+"/scope", map[string]any{"componentIds": componentIDs})
+	if err != nil {
+		return nil, fmt.Errorf("set subscriber scope: %w", err)
+	}
+	return scoped, nil
+}
 
 func (c *Client) do(ctx context.Context, method, path string, input any, output any) error {
 	var body io.Reader

@@ -4,7 +4,10 @@ import type {
   CreateDomainResponse,
   DNSProviderCredential,
   Domain,
+  ListSubscribersRequest,
   RelayTokenResponse,
+  StatusPageSubscriber,
+  SubscriberListResult,
   Tunnel,
   TunnelAPIClientOptions,
 } from '../interfaces/api';
@@ -129,6 +132,100 @@ export class TunnelAPIClient {
     return this.call<RelayTokenResponse>(
       `/machines/tunnels/${encodeURIComponent(tunnelId)}/relay-token`,
       { method: 'POST' },
+    );
+  }
+
+  async subscribeToStatusPage(
+    slug: string,
+    email: string,
+    componentIds?: string[],
+  ): Promise<{ subscribed: boolean }> {
+    return this.call<{ subscribed: boolean }>(
+      `/status/${encodeURIComponent(slug)}/subscribe`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ email, componentIds }),
+      },
+    );
+  }
+
+  async confirmSubscription(
+    slug: string,
+    token: string,
+  ): Promise<{ confirmed: boolean }> {
+    return this.call<{ confirmed: boolean }>(
+      `/status/${encodeURIComponent(slug)}/confirm`,
+      { method: 'POST', body: JSON.stringify({ token }) },
+    );
+  }
+
+  async unsubscribeFromStatusPage(
+    slug: string,
+    token: string,
+  ): Promise<{ unsubscribed: boolean }> {
+    return this.call<{ unsubscribed: boolean }>(
+      `/status/${encodeURIComponent(slug)}/unsubscribe`,
+      { method: 'POST', body: JSON.stringify({ token }) },
+    );
+  }
+
+  async listSubscribers(
+    organizationId: string,
+    request: ListSubscribersRequest = {},
+  ): Promise<SubscriberListResult> {
+    const params = new URLSearchParams();
+    if (request.q) params.set('q', request.q);
+    if (request.status) params.set('status', request.status);
+    if (request.limit) params.set('limit', String(request.limit));
+    if (request.cursor) params.set('cursor', request.cursor);
+    const query = params.toString();
+    return this.call<SubscriberListResult>(
+      `/organizations/${encodeURIComponent(organizationId)}/uptime/status-page/subscribers${query ? `?${query}` : ''}`,
+      { method: 'GET' },
+    );
+  }
+
+  async setSubscriptionsEnabled(
+    organizationId: string,
+    enabled: boolean,
+  ): Promise<{ subscriptionsEnabled: boolean }> {
+    return this.call<{ subscriptionsEnabled: boolean }>(
+      `/organizations/${encodeURIComponent(organizationId)}/uptime/status-page/subscriptions`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ subscriptionsEnabled: enabled }),
+      },
+    );
+  }
+
+  async removeSubscriber(
+    organizationId: string,
+    subscriberId: string,
+  ): Promise<void> {
+    await this.call<void>(
+      `/organizations/${encodeURIComponent(organizationId)}/uptime/status-page/subscribers/${encodeURIComponent(subscriberId)}`,
+      { method: 'DELETE' },
+    );
+  }
+
+  async managerUnsubscribeSubscriber(
+    organizationId: string,
+    subscriberId: string,
+  ): Promise<StatusPageSubscriber> {
+    return this.call<StatusPageSubscriber>(
+      `/organizations/${encodeURIComponent(organizationId)}/uptime/status-page/subscribers/${encodeURIComponent(subscriberId)}/unsubscribe`,
+      { method: 'POST' },
+    );
+  }
+
+  async setSubscriberScope(
+    organizationId: string,
+    subscriberId: string,
+    componentIds: string[],
+  ): Promise<StatusPageSubscriber> {
+    return this.call<StatusPageSubscriber>(
+      `/organizations/${encodeURIComponent(organizationId)}/uptime/status-page/subscribers/${encodeURIComponent(subscriberId)}/scope`,
+      { method: 'PUT', body: JSON.stringify({ componentIds }) },
     );
   }
 

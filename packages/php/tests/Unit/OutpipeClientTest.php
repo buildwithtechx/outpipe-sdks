@@ -105,6 +105,38 @@ final class OutpipeClientTest extends TestCase
         self::assertSame('POST', $transport->requests[0]['method']);
     }
 
+    public function testItManagesStatusPageSubscribers(): void
+    {
+        $transport = new FakeTransport([
+            new Response(201, [], '{"subscribed":true}'),
+            new Response(200, [], '{"confirmed":true}'),
+            new Response(200, [], '{"unsubscribed":true}'),
+            new Response(200, [], '{"subscribers":[{"id":"sub-1","statusPageId":"page-1","email":"user@example.com","status":"confirmed","confirmed":true,"createdAt":"2026-10-14T00:00:00Z","components":[]}],"counts":{"pending":0,"confirmed":1,"unsubscribed":0},"subscriptionsEnabled":true}'),
+            new Response(200, [], '{"subscriptionsEnabled":false}'),
+            new Response(200, [], '{"id":"sub-1","statusPageId":"page-1","email":"user@example.com","status":"unsubscribed","confirmed":false,"createdAt":"2026-10-14T00:00:00Z","components":[]}'),
+            new Response(200, [], '{"id":"sub-1","statusPageId":"page-1","email":"user@example.com","status":"confirmed","confirmed":true,"createdAt":"2026-10-14T00:00:00Z","components":["mon-1"]}'),
+            new Response(204, [], ''),
+        ]);
+        $client = new OutpipeClient('https://api.outpipe.dev', 'key-123', 3, $transport);
+
+        self::assertSame(['subscribed' => true], $client->subscribeToStatusPage('team', 'user@example.com', ['mon-1']));
+        self::assertSame(['email' => 'user@example.com', 'componentIds' => ['mon-1']], $transport->requests[0]['body']);
+        self::assertSame(['confirmed' => true], $client->confirmSubscription('team', 'confirm-token'));
+        self::assertSame(['token' => 'confirm-token'], $transport->requests[1]['body']);
+        self::assertSame(['unsubscribed' => true], $client->unsubscribeFromStatusPage('team', 'leave-token'));
+
+        $listed = $client->listSubscribers('org-1', ['status' => 'confirmed', 'q' => 'user']);
+        self::assertCount(1, $listed['subscribers']);
+        self::assertArrayNotHasKey('token', $listed['subscribers'][0]);
+        self::assertSame(['subscriptionsEnabled' => false], $client->setSubscriptionsEnabled('org-1', false));
+        self::assertSame('PATCH', $transport->requests[4]['method']);
+        self::assertSame('unsubscribed', $client->managerUnsubscribeSubscriber('org-1', 'sub-1')['status']);
+        self::assertSame(['mon-1'], $client->setSubscriberScope('org-1', 'sub-1', ['mon-1'])['components']);
+        self::assertSame(['componentIds' => ['mon-1']], $transport->requests[6]['body']);
+        $client->removeSubscriber('org-1', 'sub-1');
+        self::assertSame('DELETE', $transport->requests[7]['method']);
+    }
+
     public function testWebhookSignaturesAcceptPrefixedAndRawValues(): void
     {
         $payload = '{"event":"tunnel.ready"}';

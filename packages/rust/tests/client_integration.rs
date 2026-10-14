@@ -267,3 +267,119 @@ async fn manages_domains_and_dns_providers_against_local_http_server() {
     assert_eq!(relay.expires_at, "2026-01-01T00:15:00Z");
     server.join().expect("local server completed");
 }
+
+#[tokio::test]
+async fn manages_status_page_subscribers_against_local_http_server() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind local server");
+    let address = listener.local_addr().expect("local server address");
+    let server = thread::spawn(move || {
+        let expected = [
+            ("POST", "/api/v1/status/team/subscribe", "201 Created"),
+            ("POST", "/api/v1/status/team/confirm", "200 OK"),
+            ("POST", "/api/v1/status/team/unsubscribe", "200 OK"),
+            (
+                "GET",
+                "/api/v1/organizations/org-1/uptime/status-page/subscribers",
+                "200 OK",
+            ),
+            (
+                "PATCH",
+                "/api/v1/organizations/org-1/uptime/status-page/subscriptions",
+                "200 OK",
+            ),
+            (
+                "POST",
+                "/api/v1/organizations/org-1/uptime/status-page/subscribers/sub-1/unsubscribe",
+                "200 OK",
+            ),
+            (
+                "PUT",
+                "/api/v1/organizations/org-1/uptime/status-page/subscribers/sub-1/scope",
+                "200 OK",
+            ),
+            (
+                "DELETE",
+                "/api/v1/organizations/org-1/uptime/status-page/subscribers/sub-1",
+                "204 No Content",
+            ),
+        ];
+        for (index, (method, path, status)) in expected.iter().enumerate() {
+            let (mut stream, _) = listener.accept().expect("accept request");
+            let request = read_request(&mut stream);
+            let request_line = request.lines().next().expect("request line");
+            let bare_line = request_line.split('?').next().expect("request path");
+            assert!(
+                bare_line.starts_with(&format!("{method} {path} HTTP/1.1")),
+                "{request_line}"
+            );
+            if index == 0 {
+                let body = request.split_once("\r\n\r\n").expect("request body").1;
+                let payload: serde_json::Value =
+                    serde_json::from_str(body).expect("valid JSON request body");
+                assert_eq!(payload["email"], "user@example.com");
+            }
+            if index == 1 {
+                let body = request.split_once("\r\n\r\n").expect("request body").1;
+                let payload: serde_json::Value =
+                    serde_json::from_str(body).expect("valid JSON request body");
+                assert_eq!(payload["token"], "confirm-token");
+            }
+            let body = match index {
+                0 => r#"{"subscribed":true}"#,
+                1 => r#"{"confirmed":true}"#,
+                2 => r#"{"unsubscribed":true}"#,
+                3 => r#"{"subscribers":[{"id":"sub-1","statusPageId":"page-1","email":"user@example.com","status":"confirmed","confirmed":true,"createdAt":"2026-10-14T00:00:00Z","components":[]}],"counts":{"pending":0,"confirmed":1,"unsubscribed":0},"subscriptionsEnabled":true}"#,
+                4 => r#"{"subscriptionsEnabled":false}"#,
+                5 => r#"{"id":"sub-1","statusPageId":"page-1","email":"user@example.com","status":"unsubscribed","confirmed":false,"createdAt":"2026-10-14T00:00:00Z","components":[]}"#,
+                6 => r#"{"id":"sub-1","statusPageId":"page-1","email":"user@example.com","status":"confirmed","confirmed":true,"createdAt":"2026-10-14T00:00:00Z","components":["mon-1"]}"#,
+                _ => "",
+            };
+            respond(stream, body, status);
+        }
+    });
+
+    let client = Client::builder()
+        .base_url(format!("http://{address}"))
+        .api_key("integration-key")
+        .build()
+        .expect("build client");
+
+    client
+        .subscribe_to_status_page("team", "user@example.com", &["mon-1".to_string()])
+        .await
+        .expect("subscribe");
+    client
+        .confirm_subscription("team", "confirm-token")
+        .await
+        .expect("confirm");
+    client
+        .unsubscribe_from_status_page("team", "leave-token")
+        .await
+        .expect("unsubscribe");
+    let listed = client
+        .list_subscribers("org-1", Some("confirmed"), Some("user"))
+        .await
+        .expect("list subscribers");
+    assert_eq!(listed.subscribers.len(), 1);
+    assert_eq!(listed.subscribers[0].email, "user@example.com");
+    assert!(listed.subscriptions_enabled);
+    client
+        .set_subscriptions_enabled("org-1", false)
+        .await
+        .expect("toggle subscriptions");
+    let unsubscribed = client
+        .manager_unsubscribe_subscriber("org-1", "sub-1")
+        .await
+        .expect("manager unsubscribe");
+    assert_eq!(unsubscribed.status, "unsubscribed");
+    let scoped = client
+        .set_subscriber_scope("org-1", "sub-1", &["mon-1".to_string()])
+        .await
+        .expect("set scope");
+    assert_eq!(scoped.components, vec!["mon-1".to_string()]);
+    client
+        .remove_subscriber("org-1", "sub-1")
+        .await
+        .expect("remove subscriber");
+    server.join().expect("local server completed");
+}
