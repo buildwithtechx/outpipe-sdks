@@ -158,6 +158,83 @@ describe('TunnelAPIClient domains and DNS providers', () => {
     });
   });
 
+  it('connects a route53 provider with a JSON credential token', async () => {
+    const requests: CapturedRequest[] = [];
+    const route53Token = JSON.stringify({
+      access_key_id: 'AKIAEXAMPLE',
+      secret_access_key: 'secret',
+    });
+    const client = new TunnelAPIClient({
+      apiUrl: 'https://api.outpipe.dev',
+      fetch: mockFetch(requests, () =>
+        Response.json(
+          {
+            id: 'cred-2',
+            organizationId: 'org-1',
+            provider: 'route53',
+            lastFour: 'MPLE',
+            keyVersion: 1,
+          },
+          { status: 201 },
+        ),
+      ) as typeof globalThis.fetch,
+    });
+
+    const connected = await client.connectDNSProvider('org-1', {
+      provider: 'route53',
+      token: route53Token,
+    });
+    expect(connected.provider).toBe('route53');
+    expect(connected.lastFour).toBe('MPLE');
+    expect(requests[0]).toMatchObject({
+      method: 'POST',
+      url: 'https://api.outpipe.dev/api/v1/organizations/org-1/dns-providers',
+      body: { provider: 'route53', token: route53Token },
+    });
+  });
+
+  it('creates a domain bundle with delegation fields', async () => {
+    const requests: CapturedRequest[] = [];
+    const client = new TunnelAPIClient({
+      apiUrl: 'https://api.outpipe.dev',
+      apiKey: 'key',
+      fetch: mockFetch(requests, () =>
+        Response.json(
+          [
+            {
+              id: 'domain-3',
+              hostname: 'example.com',
+              status: 'pending',
+              verificationMethod: 'dns-automation',
+              dnsProvider: 'route53',
+              bundleGroup: 'bundle-1',
+              delegationTarget: '_outpipe.example.com',
+            },
+          ],
+          { status: 201 },
+        ),
+      ) as typeof globalThis.fetch,
+    });
+
+    const bundle = await client.createDomainBundle('org-1', {
+      hostname: 'example.com',
+      dnsProvider: 'route53',
+      wildcard: true,
+    });
+    expect(bundle).toHaveLength(1);
+    expect(bundle[0]?.bundleGroup).toBe('bundle-1');
+    expect(bundle[0]?.delegationTarget).toBe('_outpipe.example.com');
+    expect(requests[0]).toMatchObject({
+      method: 'POST',
+      url: 'https://api.outpipe.dev/api/v1/organizations/org-1/domains/bundle',
+      body: {
+        hostname: 'example.com',
+        dnsProvider: 'route53',
+        wildcard: true,
+      },
+    });
+  });
+
   it('renews machine tunnel relay tokens', async () => {
     const requests: CapturedRequest[] = [];
     const client = new TunnelAPIClient({

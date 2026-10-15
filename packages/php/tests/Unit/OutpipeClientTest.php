@@ -137,6 +137,68 @@ final class OutpipeClientTest extends TestCase
         self::assertSame('DELETE', $transport->requests[7]['method']);
     }
 
+    public function testItManagesObservabilityAlerts(): void
+    {
+        $transport = new FakeTransport([
+            new Response(201, [], '{"id":"alert-1","organizationId":"org-1","name":"homepage down","monitorIds":"[\\"mon-1\\"]","consecutiveFailures":3,"consecutiveRecoveries":2,"evalIntervalSeconds":60,"state":"ok","enabled":true,"statusPageTitle":"Homepage","statusPageImpact":"degraded"}'),
+            new Response(200, [], '[{"id":"alert-1","organizationId":"org-1","name":"homepage down","monitorIds":"[\\"mon-1\\"]","consecutiveFailures":3,"consecutiveRecoveries":2,"evalIntervalSeconds":60,"state":"ok","enabled":true}]'),
+            new Response(200, [], '{"id":"alert-1","organizationId":"org-1","name":"homepage down","monitorIds":"[\\"mon-1\\"]","consecutiveFailures":3,"consecutiveRecoveries":2,"evalIntervalSeconds":60,"state":"ok","enabled":true,"statusPageImpact":"outage"}'),
+            new Response(200, [], '{"id":"alert-1","organizationId":"org-1","name":"homepage down","monitorIds":"[\\"mon-1\\"]","consecutiveFailures":3,"consecutiveRecoveries":2,"evalIntervalSeconds":60,"state":"ok","enabled":false}'),
+            new Response(204, [], ''),
+        ]);
+        $client = new OutpipeClient('https://api.outpipe.dev', 'key-123', 3, $transport);
+
+        $created = $client->createAlert('org-1', ['name' => 'homepage down', 'monitorIds' => ['mon-1']]);
+        self::assertSame('["mon-1"]', $created['monitorIds']);
+        self::assertSame('POST', $transport->requests[0]['method']);
+        self::assertSame('/api/v1/organizations/org-1/observability/alerts', $transport->requests[0]['path']);
+        self::assertSame(['name' => 'homepage down', 'monitorIds' => ['mon-1']], $transport->requests[0]['body']);
+
+        $listed = $client->listAlerts('org-1');
+        self::assertCount(1, $listed);
+        self::assertIsString($listed[0]['monitorIds']);
+        self::assertSame('GET', $transport->requests[1]['method']);
+
+        $linked = $client->setAlertStatusPage('org-1', 'alert-1', ['publicTitle' => 'Homepage', 'impact' => 'outage', 'componentIds' => ['mon-1']]);
+        self::assertSame('outage', $linked['statusPageImpact']);
+        self::assertSame('PATCH', $transport->requests[2]['method']);
+        self::assertSame('/api/v1/organizations/org-1/observability/alerts/alert-1/status-page', $transport->requests[2]['path']);
+        self::assertSame(['publicTitle' => 'Homepage', 'impact' => 'outage', 'componentIds' => ['mon-1']], $transport->requests[2]['body']);
+
+        $disabled = $client->setAlertEnabled('org-1', 'alert-1', false);
+        self::assertFalse($disabled['enabled']);
+        self::assertSame('PATCH', $transport->requests[3]['method']);
+        self::assertSame(['enabled' => false], $transport->requests[3]['body']);
+
+        $client->deleteAlert('org-1', 'alert-1');
+        self::assertSame('DELETE', $transport->requests[4]['method']);
+        self::assertSame('/api/v1/organizations/org-1/observability/alerts/alert-1', $transport->requests[4]['path']);
+    }
+
+    public function testItConnectsRoute53WithJsonTokenAndCreatesDomainBundles(): void
+    {
+        $route53Token = json_encode(['access_key_id' => 'AKIAEXAMPLE', 'secret_access_key' => 'secret']);
+        $transport = new FakeTransport([
+            new Response(201, [], '{"id":"cred-2","organizationId":"org-1","provider":"route53","lastFour":"MPLE","keyVersion":1}'),
+            new Response(201, [], '[{"id":"domain-3","hostname":"example.com","status":"pending","verificationMethod":"dns-automation","dnsProvider":"route53","bundleGroup":"bundle-1","delegationTarget":"_outpipe.example.com"}]'),
+        ]);
+        $client = new OutpipeClient('https://api.outpipe.dev', 'key-123', 3, $transport);
+
+        $connected = $client->connectDNSProvider('org-1', ['provider' => 'route53', 'token' => $route53Token]);
+        self::assertSame('route53', $connected['provider']);
+        self::assertSame('MPLE', $connected['lastFour']);
+        self::assertSame(['provider' => 'route53', 'token' => $route53Token], $transport->requests[0]['body']);
+        $credential = json_decode($transport->requests[0]['body']['token'], true);
+        self::assertSame('AKIAEXAMPLE', $credential['access_key_id']);
+
+        $bundle = $client->createDomainBundle('org-1', ['hostname' => 'example.com', 'dnsProvider' => 'route53', 'wildcard' => true]);
+        self::assertCount(1, $bundle);
+        self::assertSame('bundle-1', $bundle[0]['bundleGroup']);
+        self::assertSame('_outpipe.example.com', $bundle[0]['delegationTarget']);
+        self::assertSame('POST', $transport->requests[1]['method']);
+        self::assertSame('/api/v1/organizations/org-1/domains/bundle', $transport->requests[1]['path']);
+    }
+
     public function testItManagesMachineFleetsAndPipelines(): void
     {
         $transport = new FakeTransport([

@@ -56,6 +56,12 @@ pub struct Domain {
     pub certificate_status: Option<String>,
     #[serde(rename = "certificateExpiresAt")]
     pub certificate_expires_at: Option<String>,
+    #[serde(rename = "dnsProvider")]
+    pub dns_provider: Option<String>,
+    #[serde(rename = "bundleGroup")]
+    pub bundle_group: Option<String>,
+    #[serde(rename = "delegationTarget")]
+    pub delegation_target: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -65,6 +71,21 @@ pub struct CreateDomain {
     pub verification_method: String,
     #[serde(rename = "tunnelId", skip_serializing_if = "Option::is_none")]
     pub tunnel_id: Option<String>,
+    #[serde(rename = "dnsProvider", skip_serializing_if = "Option::is_none")]
+    pub dns_provider: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct CreateDomainBundle {
+    pub hostname: String,
+    #[serde(rename = "tunnelId", skip_serializing_if = "Option::is_none")]
+    pub tunnel_id: Option<String>,
+    #[serde(rename = "dnsProvider", skip_serializing_if = "Option::is_none")]
+    pub dns_provider: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub wildcard: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delegated: Option<bool>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
@@ -195,4 +216,61 @@ pub struct DeadLetter {
     pub attempts: i64,
     #[serde(rename = "lastError")]
     pub last_error: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct Alert {
+    pub id: String,
+    #[serde(rename = "organizationId")]
+    pub organization_id: String,
+    pub name: String,
+    #[serde(rename = "monitorIds")]
+    pub monitor_ids: String,
+    #[serde(rename = "consecutiveFailures")]
+    pub consecutive_failures: i64,
+    #[serde(rename = "consecutiveRecoveries")]
+    pub consecutive_recoveries: i64,
+    #[serde(rename = "evalIntervalSeconds")]
+    pub eval_interval_seconds: i64,
+    pub state: String,
+    pub enabled: bool,
+    #[serde(rename = "statusPageTitle")]
+    pub status_page_title: Option<String>,
+    #[serde(rename = "statusPageImpact")]
+    pub status_page_impact: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct CreateAlert {
+    pub name: String,
+    #[serde(rename = "monitorIds")]
+    pub monitor_ids: Vec<String>,
+    #[serde(
+        rename = "consecutiveFailures",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub consecutive_failures: Option<i64>,
+    #[serde(
+        rename = "consecutiveRecoveries",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub consecutive_recoveries: Option<i64>,
+    #[serde(
+        rename = "evalIntervalSeconds",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub eval_interval_seconds: Option<i64>,
+    #[serde(rename = "statusPageTitle", skip_serializing_if = "Option::is_none")]
+    pub status_page_title: Option<String>,
+    #[serde(rename = "statusPageImpact", skip_serializing_if = "Option::is_none")]
+    pub status_page_impact: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
+pub struct SetAlertStatusPage {
+    #[serde(rename = "publicTitle")]
+    pub public_title: String,
+    pub impact: String,
+    #[serde(rename = "componentIds")]
+    pub component_ids: Vec<String>,
 }

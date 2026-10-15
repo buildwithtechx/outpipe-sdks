@@ -182,6 +182,36 @@ final class OutpipeClient
         return $this->request('GET', '/api/v1/organizations/' . $this->segment($organizationId) . '/observability/dead-letters', ['limit' => $limit]);
     }
 
+    public function listAlerts(string $organizationId): array
+    {
+        return $this->request('GET', '/api/v1/organizations/' . $this->segment($organizationId) . '/observability/alerts');
+    }
+
+    public function createAlert(string $organizationId, array $alert): array
+    {
+        return $this->request('POST', '/api/v1/organizations/' . $this->segment($organizationId) . '/observability/alerts', $alert);
+    }
+
+    public function deleteAlert(string $organizationId, string $alertId): void
+    {
+        $this->request('DELETE', '/api/v1/organizations/' . $this->segment($organizationId) . '/observability/alerts/' . $this->segment($alertId));
+    }
+
+    public function setAlertStatusPage(string $organizationId, string $alertId, array $statusPage): array
+    {
+        return $this->request('PATCH', '/api/v1/organizations/' . $this->segment($organizationId) . '/observability/alerts/' . $this->segment($alertId) . '/status-page', $statusPage);
+    }
+
+    public function setAlertEnabled(string $organizationId, string $alertId, bool $enabled): array
+    {
+        return $this->request('PATCH', '/api/v1/organizations/' . $this->segment($organizationId) . '/observability/alerts/' . $this->segment($alertId) . '/enabled', ['enabled' => $enabled]);
+    }
+
+    public function createDomainBundle(string $organizationId, array $bundle): array
+    {
+        return $this->request('POST', '/api/v1/organizations/' . $this->segment($organizationId) . '/domains/bundle', $bundle);
+    }
+
     public function usageSnapshot(string $organizationId, array $query = []): array
     {
         return $this->request('GET', '/api/v1/organizations/' . $this->segment($organizationId) . '/usage/snapshot', $query);

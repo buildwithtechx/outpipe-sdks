@@ -28,6 +28,9 @@ export type Domain = {
   verifiedAt?: string;
   certificateStatus?: string;
   certificateExpiresAt?: string;
+  dnsProvider?: string;
+  bundleGroup?: string;
+  delegationTarget?: string;
   [key: string]: unknown;
 };
 
@@ -35,12 +38,25 @@ export type CreateDomainRequest = {
   hostname: string;
   verificationMethod: DomainVerificationMethod;
   tunnelId?: string;
+  dnsProvider?: DNSProviderName | string;
+};
+
+export type CreateDomainBundleRequest = {
+  hostname: string;
+  tunnelId?: string;
+  dnsProvider?: DNSProviderName | string;
+  wildcard?: boolean;
+  delegated?: boolean;
 };
 
 export type CreateDomainResponse = {
   domain: Domain;
   verificationToken: string;
 };
+
+export type DNSProviderName = 'cloudflare' | 'route53';
+
+export type Route53CredentialToken = string;
 
 export type DNSProviderCredential = {
   id: string;
@@ -53,8 +69,14 @@ export type DNSProviderCredential = {
 };
 
 export type ConnectDNSProviderRequest = {
-  provider: string;
+  provider: DNSProviderName;
   token: string;
+  label?: string;
+};
+
+export type ConnectRoute53ProviderRequest = {
+  provider: 'route53';
+  token: Route53CredentialToken;
   label?: string;
 };
 
@@ -156,4 +178,35 @@ export type DeadLetter = {
   attempts: number;
   lastError: string;
   updatedAt: string;
+};
+
+export type Alert = {
+  id: string;
+  organizationId: string;
+  name: string;
+  monitorIds: string;
+  consecutiveFailures: number;
+  consecutiveRecoveries: number;
+  evalIntervalSeconds: number;
+  state: string;
+  enabled: boolean;
+  statusPageTitle?: string;
+  statusPageImpact?: string;
+  [key: string]: unknown;
+};
+
+export type CreateAlertRequest = {
+  name: string;
+  monitorIds: string[];
+  consecutiveFailures?: number;
+  consecutiveRecoveries?: number;
+  evalIntervalSeconds?: number;
+  statusPageTitle?: string;
+  statusPageImpact?: string;
+};
+
+export type SetAlertStatusPageRequest = {
+  publicTitle: string;
+  impact: string;
+  componentIds: string[];
 };

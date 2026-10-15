@@ -81,6 +81,58 @@ export interface HttpPayloadCaptureOptions {
 
 export type HttpPayloadCaptureSetting = boolean | HttpPayloadCaptureOptions;
 
+export interface HttpPayloadCaptureContext {
+  pathname: string;
+  method?: string;
+}
+
+export interface HttpPayloadCapturePolicy {
+  shouldCapturePayloads?: (context: HttpPayloadCaptureContext) => boolean;
+}
+
+export function resolveHttpPayloadCapture(
+  setting: HttpPayloadCaptureSetting | undefined,
+  context: HttpPayloadCaptureContext,
+  policy?: HttpPayloadCapturePolicy,
+): HttpPayloadCaptureSetting {
+  if (setting === undefined || setting === false) return false;
+
+  try {
+    const predicate = policy?.shouldCapturePayloads;
+    if (predicate === undefined) return setting;
+
+    const decision: unknown = predicate(context);
+    if (decision === true) return setting;
+
+    if (
+      decision !== null &&
+      (typeof decision === 'object' || typeof decision === 'function') &&
+      typeof (decision as { then?: unknown }).then === 'function'
+    ) {
+      void Promise.resolve(decision).catch(() => {});
+    }
+  } catch {
+    // Intentionally ignored.
+  }
+
+  return false;
+}
+
+function payloadCapturePathname(
+  request: IncomingMessage & { originalUrl?: unknown },
+): string {
+  const target =
+    typeof request.originalUrl === 'string'
+      ? request.originalUrl
+      : (request.url ?? '/');
+  if (target.startsWith('/')) return target.split(/[?#]/, 1)[0] ?? '/';
+  try {
+    return new URL(target, 'http://localhost').pathname;
+  } catch {
+    return '/';
+  }
+}
+
 export function redactHeaders(
   headers: IncomingHttpHeaders | Record<string, unknown>,
   additionalSensitive?: readonly string[],
@@ -156,6 +208,7 @@ export type NodeHttpPayloadCaptureMiddleware = (
 
 export function createNodeHttpPayloadCaptureMiddleware(
   setting: HttpPayloadCaptureSetting = true,
+  policy?: HttpPayloadCapturePolicy,
 ): NodeHttpPayloadCaptureMiddleware {
   if (setting === false) {
     return (_req, _res, next) => next();
@@ -169,6 +222,24 @@ export function createNodeHttpPayloadCaptureMiddleware(
   );
 
   return (req, res, next) => {
+    try {
+      const capture = resolveHttpPayloadCapture(
+        setting,
+        {
+          pathname: payloadCapturePathname(req),
+          method: (req.method ?? 'GET').toUpperCase(),
+        },
+        policy,
+      );
+      if (capture === false) {
+        next();
+        return;
+      }
+    } catch {
+      next();
+      return;
+    }
+
     const payloads: CapturedPayloads = {};
     req.outpipePayloads = payloads;
     res.outpipePayloads = payloads;

@@ -11,6 +11,6 @@ describe('OutpipeModule', () => {
     });
     expect(dynamicModule.module).toBe(OutpipeModule);
     expect(dynamicModule.exports).toContain(OutpipeService);
-    expect(dynamicModule.providers).toHaveLength(2);
+    expect(dynamicModule.providers).toHaveLength(3);
   });
 });

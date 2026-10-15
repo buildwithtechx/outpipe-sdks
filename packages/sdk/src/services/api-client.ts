@@ -1,5 +1,9 @@
 import type {
+  Alert,
   ConnectDNSProviderRequest,
+  ConnectRoute53ProviderRequest,
+  CreateAlertRequest,
+  CreateDomainBundleRequest,
   CreateDomainRequest,
   CreateDomainResponse,
   DeadLetter,
@@ -12,6 +16,7 @@ import type {
   MachineFleet,
   PipelineHealth,
   RelayTokenResponse,
+  SetAlertStatusPageRequest,
   StatusPageSubscriber,
   SubscriberListResult,
   Tunnel,
@@ -90,6 +95,16 @@ export class TunnelAPIClient {
     );
   }
 
+  async createDomainBundle(
+    organizationId: string,
+    request: CreateDomainBundleRequest,
+  ): Promise<Domain[]> {
+    return this.call<Domain[]>(
+      `/organizations/${encodeURIComponent(organizationId)}/domains/bundle`,
+      { method: 'POST', body: JSON.stringify(request) },
+    );
+  }
+
   async verifyDomain(domainId: string, token: string): Promise<void> {
     await this.call<void>(`/domains/${encodeURIComponent(domainId)}/verify`, {
       method: 'POST',
@@ -114,7 +129,7 @@ export class TunnelAPIClient {
 
   async connectDNSProvider(
     organizationId: string,
-    request: ConnectDNSProviderRequest,
+    request: ConnectDNSProviderRequest | ConnectRoute53ProviderRequest,
   ): Promise<DNSProviderCredential> {
     return this.call<DNSProviderCredential>(
       `/organizations/${encodeURIComponent(organizationId)}/dns-providers`,
@@ -317,6 +332,52 @@ export class TunnelAPIClient {
     return this.call<DeadLetter[]>(
       `/organizations/${encodeURIComponent(organizationId)}/observability/dead-letters?limit=${limit}`,
       { method: 'GET' },
+    );
+  }
+
+  async listAlerts(organizationId: string): Promise<Alert[]> {
+    return this.call<Alert[]>(
+      `/organizations/${encodeURIComponent(organizationId)}/observability/alerts`,
+      { method: 'GET' },
+    );
+  }
+
+  async createAlert(
+    organizationId: string,
+    request: CreateAlertRequest,
+  ): Promise<Alert> {
+    return this.call<Alert>(
+      `/organizations/${encodeURIComponent(organizationId)}/observability/alerts`,
+      { method: 'POST', body: JSON.stringify(request) },
+    );
+  }
+
+  async deleteAlert(organizationId: string, alertId: string): Promise<void> {
+    await this.call<void>(
+      `/organizations/${encodeURIComponent(organizationId)}/observability/alerts/${encodeURIComponent(alertId)}`,
+      { method: 'DELETE' },
+    );
+  }
+
+  async setAlertStatusPage(
+    organizationId: string,
+    alertId: string,
+    request: SetAlertStatusPageRequest,
+  ): Promise<Alert> {
+    return this.call<Alert>(
+      `/organizations/${encodeURIComponent(organizationId)}/observability/alerts/${encodeURIComponent(alertId)}/status-page`,
+      { method: 'PATCH', body: JSON.stringify(request) },
+    );
+  }
+
+  async setAlertEnabled(
+    organizationId: string,
+    alertId: string,
+    enabled: boolean,
+  ): Promise<Alert> {
+    return this.call<Alert>(
+      `/organizations/${encodeURIComponent(organizationId)}/observability/alerts/${encodeURIComponent(alertId)}/enabled`,
+      { method: 'PATCH', body: JSON.stringify({ enabled }) },
     );
   }
 

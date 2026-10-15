@@ -1,9 +1,9 @@
 use crate::{
     error::Error,
     models::{
-        ConnectDnsProvider, CreateDomain, CreateDomainResponse, CreateTunnel, DeadLetter,
-        DnsProviderCredential, Domain, FleetStatus, MachineFleet, Organization, PipelineHealth,
-        RelayTokenResponse, StatusPageSubscriber, SubscriberListResult, Tunnel,
+        ConnectDnsProvider, CreateDomain, CreateDomainBundle, CreateDomainResponse, CreateTunnel,
+        DeadLetter, DnsProviderCredential, Domain, FleetStatus, MachineFleet, Organization,
+        PipelineHealth, RelayTokenResponse, StatusPageSubscriber, SubscriberListResult, Tunnel,
     },
     Result,
 };
@@ -69,17 +69,6 @@ impl ClientBuilder {
 impl Default for ClientBuilder {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::Client;
-
-    #[test]
-    fn defaults_to_hosted_endpoint() {
-        let client = Client::builder().api_key("key").build().unwrap();
-        assert_eq!(client.base_url.as_str(), "https://api.outpipe.dev/");
     }
 }
 
@@ -206,6 +195,23 @@ impl Client {
         .await
     }
 
+    pub async fn create_domain_bundle(
+        &self,
+        organization_id: &str,
+        bundle: &CreateDomainBundle,
+    ) -> Result<Vec<Domain>> {
+        self.send(
+            Method::POST,
+            &format!(
+                "api/v1/organizations/{}/domains/bundle",
+                encode(organization_id)
+            ),
+            Some(bundle),
+            None::<&()>,
+        )
+        .await
+    }
+
     pub async fn list_dns_providers(
         &self,
         organization_id: &str,
@@ -269,11 +275,7 @@ impl Client {
         .await
     }
 
-    pub async fn confirm_subscription(
-        &self,
-        slug: &str,
-        token: &str,
-    ) -> Result<serde_json::Value> {
+    pub async fn confirm_subscription(&self, slug: &str, token: &str) -> Result<serde_json::Value> {
         self.send(
             Method::POST,
             &format!("api/v1/status/{}/confirm", encode(slug)),
@@ -393,10 +395,7 @@ impl Client {
         .await
     }
 
-    pub async fn list_machine_fleets(
-        &self,
-        organization_id: &str,
-    ) -> Result<Vec<MachineFleet>> {
+    pub async fn list_machine_fleets(&self, organization_id: &str) -> Result<Vec<MachineFleet>> {
         self.get(
             &format!(
                 "api/v1/organizations/{}/machine-fleets",
@@ -407,11 +406,7 @@ impl Client {
         .await
     }
 
-    pub async fn fleet_status(
-        &self,
-        organization_id: &str,
-        fleet_id: &str,
-    ) -> Result<FleetStatus> {
+    pub async fn fleet_status(&self, organization_id: &str, fleet_id: &str) -> Result<FleetStatus> {
         self.get(
             &format!(
                 "api/v1/organizations/{}/machine-fleets/{}",
@@ -441,10 +436,7 @@ impl Client {
         .await
     }
 
-    pub async fn pipeline_health(
-        &self,
-        organization_id: &str,
-    ) -> Result<PipelineHealth> {
+    pub async fn pipeline_health(&self, organization_id: &str) -> Result<PipelineHealth> {
         self.get(
             &format!(
                 "api/v1/organizations/{}/observability/pipelines",
@@ -455,10 +447,7 @@ impl Client {
         .await
     }
 
-    pub async fn dead_letters(
-        &self,
-        organization_id: &str,
-    ) -> Result<Vec<DeadLetter>> {
+    pub async fn dead_letters(&self, organization_id: &str) -> Result<Vec<DeadLetter>> {
         self.get(
             &format!(
                 "api/v1/organizations/{}/observability/dead-letters",
@@ -477,7 +466,7 @@ impl Client {
         self.send(Method::GET, path, None::<&()>, query).await
     }
 
-    async fn send<T: DeserializeOwned, B: Serialize, Q: Serialize>(
+    pub(crate) async fn send<T: DeserializeOwned, B: Serialize, Q: Serialize>(
         &self,
         method: Method,
         path: &str,
@@ -491,7 +480,12 @@ impl Client {
         Ok(response.json().await?)
     }
 
-    async fn send_empty<B: Serialize>(&self, method: Method, path: &str, body: &B) -> Result<()> {
+    pub(crate) async fn send_empty<B: Serialize>(
+        &self,
+        method: Method,
+        path: &str,
+        body: &B,
+    ) -> Result<()> {
         self.request(method, path, Some(body), None::<&()>)
             .await?
             .error_for_status()?;
@@ -538,6 +532,17 @@ impl Client {
     }
 }
 
-fn encode(value: &str) -> String {
+pub(crate) fn encode(value: &str) -> String {
     url::form_urlencoded::byte_serialize(value.as_bytes()).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Client;
+
+    #[test]
+    fn defaults_to_hosted_endpoint() {
+        let client = Client::builder().api_key("key").build().unwrap();
+        assert_eq!(client.base_url.as_str(), "https://api.outpipe.dev/");
+    }
 }

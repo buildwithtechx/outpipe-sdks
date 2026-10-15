@@ -220,6 +220,7 @@ async fn manages_domains_and_dns_providers_against_local_http_server() {
                 hostname: "*.example.com".into(),
                 verification_method: "dns-automation".into(),
                 tunnel_id: None,
+                dns_provider: None,
             },
         )
         .await
@@ -307,9 +308,13 @@ async fn manages_status_page_subscribers_against_local_http_server() {
             let (mut stream, _) = listener.accept().expect("accept request");
             let request = read_request(&mut stream);
             let request_line = request.lines().next().expect("request line");
-            let bare_line = request_line.split('?').next().expect("request path");
+            let bare_path = request_line
+                .split_whitespace()
+                .nth(1)
+                .and_then(|target| target.split('?').next())
+                .expect("request path");
             assert!(
-                bare_line.starts_with(&format!("{method} {path} HTTP/1.1")),
+                request_line.starts_with(&format!("{method} ")) && bare_path == *path,
                 "{request_line}"
             );
             if index == 0 {
@@ -328,10 +333,16 @@ async fn manages_status_page_subscribers_against_local_http_server() {
                 0 => r#"{"subscribed":true}"#,
                 1 => r#"{"confirmed":true}"#,
                 2 => r#"{"unsubscribed":true}"#,
-                3 => r#"{"subscribers":[{"id":"sub-1","statusPageId":"page-1","email":"user@example.com","status":"confirmed","confirmed":true,"createdAt":"2026-10-14T00:00:00Z","components":[]}],"counts":{"pending":0,"confirmed":1,"unsubscribed":0},"subscriptionsEnabled":true}"#,
+                3 => {
+                    r#"{"subscribers":[{"id":"sub-1","statusPageId":"page-1","email":"user@example.com","status":"confirmed","confirmed":true,"createdAt":"2026-10-14T00:00:00Z","components":[]}],"counts":{"pending":0,"confirmed":1,"unsubscribed":0},"subscriptionsEnabled":true}"#
+                }
                 4 => r#"{"subscriptionsEnabled":false}"#,
-                5 => r#"{"id":"sub-1","statusPageId":"page-1","email":"user@example.com","status":"unsubscribed","confirmed":false,"createdAt":"2026-10-14T00:00:00Z","components":[]}"#,
-                6 => r#"{"id":"sub-1","statusPageId":"page-1","email":"user@example.com","status":"confirmed","confirmed":true,"createdAt":"2026-10-14T00:00:00Z","components":["mon-1"]}"#,
+                5 => {
+                    r#"{"id":"sub-1","statusPageId":"page-1","email":"user@example.com","status":"unsubscribed","confirmed":false,"createdAt":"2026-10-14T00:00:00Z","components":[]}"#
+                }
+                6 => {
+                    r#"{"id":"sub-1","statusPageId":"page-1","email":"user@example.com","status":"confirmed","confirmed":true,"createdAt":"2026-10-14T00:00:00Z","components":["mon-1"]}"#
+                }
                 _ => "",
             };
             respond(stream, body, status);
@@ -420,17 +431,29 @@ async fn manages_fleets_and_pipelines_against_local_http_server() {
             let (mut stream, _) = listener.accept().expect("accept request");
             let request = read_request(&mut stream);
             let request_line = request.lines().next().expect("request line");
-            let bare_line = request_line.split('?').next().expect("request path");
+            let bare_path = request_line
+                .split_whitespace()
+                .nth(1)
+                .and_then(|target| target.split('?').next())
+                .expect("request path");
             assert!(
-                bare_line.starts_with(&format!("{method} {path} HTTP/1.1")),
+                request_line.starts_with(&format!("{method} ")) && bare_path == *path,
                 "{request_line}"
             );
             let body = match index {
-                0 => r#"[{"id":"fleet-1","organizationId":"org-1","name":"edge","description":""}]"#,
-                1 => r#"{"fleet":{"id":"fleet-1","organizationId":"org-1","name":"edge","description":""},"drift":[]}"#,
+                0 => {
+                    r#"[{"id":"fleet-1","organizationId":"org-1","name":"edge","description":""}]"#
+                }
+                1 => {
+                    r#"{"fleet":{"id":"fleet-1","organizationId":"org-1","name":"edge","description":""},"drift":[]}"#
+                }
                 2 => r#"{"reactivated":1,"recreated":0,"skipped":0}"#,
-                3 => r#"{"organizationId":"org-1","queues":[{"queue":"webhook-deliveries","depth":2,"deadLettered":1,"healthy":false}],"healthy":false}"#,
-                _ => r#"[{"queue":"telemetry-exports","id":"job-1","eventType":"captures","attempts":5,"lastError":"down","updatedAt":"2026-10-14T00:00:00Z"}]"#,
+                3 => {
+                    r#"{"organizationId":"org-1","queues":[{"queue":"webhook-deliveries","depth":2,"deadLettered":1,"healthy":false}],"healthy":false}"#
+                }
+                _ => {
+                    r#"[{"queue":"telemetry-exports","id":"job-1","eventType":"captures","attempts":5,"lastError":"down","updatedAt":"2026-10-14T00:00:00Z"}]"#
+                }
             };
             respond(stream, body, status);
         }
@@ -463,10 +486,7 @@ async fn manages_fleets_and_pipelines_against_local_http_server() {
         .expect("pipeline health");
     assert!(!health.healthy);
     assert_eq!(health.queues[0].queue, "webhook-deliveries");
-    let letters = client
-        .dead_letters("org-1")
-        .await
-        .expect("dead letters");
+    let letters = client.dead_letters("org-1").await.expect("dead letters");
     assert_eq!(letters.len(), 1);
     assert_eq!(letters[0].queue, "telemetry-exports");
     server.join().expect("local server completed");

@@ -102,6 +102,13 @@ func (c *Client) CreateDomain(ctx context.Context, organizationID string, domain
 	}
 	return created, nil
 }
+func (c *Client) CreateDomainBundle(ctx context.Context, organizationID string, bundle map[string]any) ([]map[string]any, error) {
+	var created []map[string]any
+	if err := c.do(ctx, http.MethodPost, "/"+c.apiPrefix+"/organizations/"+url.PathEscape(organizationID)+"/domains/bundle", bundle, &created); err != nil {
+		return nil, fmt.Errorf("create domain bundle: %w", err)
+	}
+	return created, nil
+}
 func (c *Client) VerifyDomain(ctx context.Context, domainID, token string) error {
 	if err := requestNoContent(ctx, c, http.MethodPost, "/domains/"+url.PathEscape(domainID)+"/verify", map[string]string{"token": token}); err != nil {
 		return fmt.Errorf("verify domain: %w", err)
