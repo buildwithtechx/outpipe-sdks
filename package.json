@@ -12,10 +12,10 @@
     "build:packages": "npm run build:types --workspace packages/sdk && npm run build --workspace packages/sdk && npm run build --workspace packages/shared && npm run build --workspace packages/hono && npm run build --workspace packages/tanstack-start && npm run build --workspace packages/react && npm run build --workspace packages/vite-plugin && npm run build --workspace packages/next && npm run build --workspace packages/nest && npm run build --workspace packages/express && npm run build --workspace packages/angular",
     "build:go": "cd packages/go && go build ./...",
     "build:rust": "cargo build --manifest-path packages/rust/Cargo.toml",
-    "test": "npm run test --workspaces --if-present && npm run test:go && npm run test:rust && npm run test:php",
+    "test": "npm run build --workspace packages/sdk && npm run test --workspaces --if-present && npm run test:go && npm run test:rust && npm run test:php",
     "test:go": "cd packages/go && go vet ./... && go test ./...",
     "test:rust": "cargo fmt --manifest-path packages/rust/Cargo.toml --all -- --check && cargo test --manifest-path packages/rust/Cargo.toml",
-    "test:php": "cd packages/php && composer validate --strict --no-check-publish && composer test && composer check",
+    "test:php": "cd packages/php && composer validate --strict --no-check-publish && composer check && cd ../.. && composer install --no-interaction --no-progress && vendor/bin/phpunit packages/php/tests",
     "typecheck": "npm run build:types --workspace packages/sdk && npm run typecheck --workspaces --if-present",
     "fmt": "biome check --write packages",
     "format": "biome check packages"
